@@ -1,132 +1,221 @@
-import { useParams, Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { ArrowLeft, Star, MapPin, Eye } from 'lucide-react'
-import { Suspense } from 'react'
-import { constellations } from '../data/constellations'
-import { stars } from '../data/stars'
-import { StarFieldCanvas } from '../components/StarField'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { ArrowLeft, Loader2, Orbit, Layers } from 'lucide-react'
+import { ConstellationModel, type ViewMode } from '../components/ConstellationModel'
+import {
+  designation,
+  formatLy,
+  loadConstellations,
+  loadNebulae,
+  type Constellation,
+  type Nebula,
+} from '../lib/astro'
 
 export function ConstellationDetail() {
-  const { id } = useParams()
-  const constellation = constellations.find((c) => c.id === id)
-  const relatedStars = stars.filter((s) => s.constellationId === id)
+  const { id } = useParams<{ id: string }>()
+  const [all, setAll] = useState<Constellation[] | null>(null)
+  const [nebulae, setNebulae] = useState<Nebula[]>([])
+  const [mode, setMode] = useState<ViewMode>('pattern')
 
-  if (!constellation) {
+  useEffect(() => {
+    loadConstellations().then(setAll).catch(() => setAll([]))
+    loadNebulae().then(setNebulae).catch(() => setNebulae([]))
+  }, [])
+
+  const c = useMemo(() => {
+    if (!all || !id) return null
+    const key = id.toLowerCase()
     return (
-      <div className="min-h-screen pt-32 section-padding text-center">
-        <p className="text-cosmos-silver">Constellation not found.</p>
-        <Link to="/constellations" className="btn-secondary mt-4 inline-flex">
-          Back
+      all.find((x) => x.id.toLowerCase() === key) ??
+      all.find((x) => x.name.toLowerCase() === key) ??
+      null
+    )
+  }, [all, id])
+
+  const related = useMemo(
+    () => (c ? nebulae.filter((n) => n.conId === c.id) : []),
+    [c, nebulae],
+  )
+
+  if (!all) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center">
+        <div className="flex items-center gap-3 text-[#a0a0b8]">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span className="text-sm">Loading catalogue…</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (!c) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-[#f0f0f8]">No constellation matches “{id}”.</p>
+        <Link to="/constellations" className="text-[#9b8cff] hover:text-[#c084fc] text-sm">
+          Browse all 88 →
         </Link>
       </div>
     )
   }
 
+  const named = c.stars.filter((s) => s.n)
+
   return (
-    <div className="min-h-screen pt-24 pb-16">
-      <div className="section-padding container-wide">
+    <div className="relative">
+      <div className="section-padding container-wide pt-24 pb-16">
         <Link
           to="/constellations"
-          className="inline-flex items-center gap-2 text-sm text-cosmos-silver hover:text-cosmos-pure mb-8 transition-colors"
+          className="inline-flex items-center gap-2 text-[13px] text-[#a0a0b8] hover:text-[#f0f0f8] transition-colors mb-6"
         >
           <ArrowLeft className="w-4 h-4" /> All constellations
         </Link>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="grid lg:grid-cols-2 gap-12 mb-16"
-        >
+        <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
           <div>
-            <div className="flex items-center gap-3 mb-4">
-              <h1 className="text-display-sm md:text-display-md font-semibold text-cosmos-pure">
-                {constellation.name}
-              </h1>
-              <span className="font-mono text-sm text-cosmos-glow bg-cosmos-accent/10 px-3 py-1 rounded-full">
-                {constellation.abbreviation}
-              </span>
-            </div>
-            <p className="text-cosmos-silver leading-relaxed mb-8">{constellation.description}</p>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="card p-4">
-                <div className="flex items-center gap-2 text-cosmos-silver text-xs mb-1">
-                  <Eye className="w-3.5 h-3.5" /> Visibility
-                </div>
-                <p className="text-sm text-cosmos-pure">{constellation.visibility}</p>
-              </div>
-              <div className="card p-4">
-                <div className="flex items-center gap-2 text-cosmos-silver text-xs mb-1">
-                  <MapPin className="w-3.5 h-3.5" /> Hemisphere
-                </div>
-                <p className="text-sm text-cosmos-pure">{constellation.hemisphere}</p>
-              </div>
-              <div className="card p-4">
-                <div className="text-cosmos-silver text-xs mb-1">Area</div>
-                <p className="text-sm text-cosmos-pure">{constellation.area} square degrees</p>
-              </div>
-              <div className="card p-4">
-                <div className="text-cosmos-silver text-xs mb-1">Genitive</div>
-                <p className="text-sm text-cosmos-pure font-mono">{constellation.genitive}</p>
-              </div>
-            </div>
+            <p className="text-[11px] font-medium tracking-[0.28em] uppercase text-[#9b8cff]/90 mb-2">
+              {c.id} · {c.genitive}
+            </p>
+            <h1 className="text-[2.2rem] md:text-[3rem] font-semibold tracking-[-0.02em] text-[#f0f0f8]">
+              {c.name}
+            </h1>
           </div>
 
-          <div className="card relative overflow-hidden min-h-[340px] rounded-2xl">
-            <Suspense fallback={<div className="absolute inset-0 bg-[#050508]" />}>
-              <StarFieldCanvas dense={false} className="opacity-100" />
-            </Suspense>
-            <div className="absolute inset-0 bg-gradient-to-t from-[#050508]/90 via-transparent to-transparent pointer-events-none" />
-            <div className="absolute bottom-6 left-0 right-0 text-center pointer-events-none">
-              <p className="text-sm text-cosmos-pure font-medium">{constellation.name}</p>
-              <p className="text-xs text-cosmos-silver/70 mt-1">Field visualization</p>
-            </div>
+          <div className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
+            <ModeButton active={mode === 'pattern'} onClick={() => setMode('pattern')} icon={<Layers className="w-3.5 h-3.5" />}>
+              Sky pattern
+            </ModeButton>
+            <ModeButton active={mode === 'true3d'} onClick={() => setMode('true3d')} icon={<Orbit className="w-3.5 h-3.5" />}>
+              True 3D
+            </ModeButton>
           </div>
-        </motion.div>
+        </div>
 
-        {relatedStars.length > 0 && (
-          <section>
-            <h2 className="text-lg font-semibold text-cosmos-pure mb-6 flex items-center gap-2">
-              <Star className="w-5 h-5 text-cosmos-glow" /> Major Stars
+        <div className="rounded-2xl overflow-hidden border border-white/[0.07] bg-black mb-3">
+          <ConstellationModel constellation={c} mode={mode} className="h-[52vh] min-h-[360px]" />
+        </div>
+        <p className="text-[12px] text-[#6b6b85] mb-10">
+          {mode === 'pattern'
+            ? 'Every star projected onto one shell — the figure as it looks from Earth. Drag to orbit, scroll to zoom, hover a star for its data.'
+            : 'Each star placed at its catalogued distance (log-compressed). The familiar shape only exists from our line of sight.'}
+        </p>
+
+        <div className="grid md:grid-cols-4 gap-4 mb-10">
+          <Stat label="Stars to mag 6.5" value={c.starCount.toLocaleString()} />
+          <Stat label="Named stars" value={String(named.length)} />
+          <Stat label="Nearest star" value={formatLy(c.nearestLy)} />
+          <Stat label="Farthest star" value={formatLy(c.farthestLy)} />
+        </div>
+
+        {named.length > 0 && (
+          <>
+            <h2 className="text-[1.25rem] font-semibold text-[#f0f0f8] mb-4">Named stars</h2>
+            <div className="overflow-x-auto rounded-xl border border-white/[0.07] mb-12">
+              <table className="w-full text-[13px] min-w-[620px]">
+                <thead>
+                  <tr className="text-[11px] uppercase tracking-wider text-[#6b6b85] border-b border-white/[0.07]">
+                    <Th>Name</Th>
+                    <Th>Designation</Th>
+                    <Th right>Magnitude</Th>
+                    <Th right>Distance</Th>
+                    <Th>Spectral type</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {named.map((s, i) => (
+                    <tr key={`${s.hip ?? s.n}-${i}`} className="border-b border-white/[0.04] last:border-0">
+                      <td className="px-4 py-2.5 text-[#f0f0f8]">{s.n}</td>
+                      <td className="px-4 py-2.5 text-[#a0a0b8] font-mono text-[12px]">
+                        {designation(s, c.genitive) ?? '—'}
+                      </td>
+                      <td className="px-4 py-2.5 text-[#dcdcec] text-right font-mono text-[12px]">{s.mag}</td>
+                      <td className="px-4 py-2.5 text-[#dcdcec] text-right font-mono text-[12px]">
+                        {s.ly ? `${Math.round(s.ly).toLocaleString()} ly` : '—'}
+                      </td>
+                      <td className="px-4 py-2.5 text-[#a0a0b8] font-mono text-[12px]">{s.sp ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {related.length > 0 && (
+          <>
+            <h2 className="text-[1.25rem] font-semibold text-[#f0f0f8] mb-4">
+              Deep-sky objects in {c.name}
             </h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {relatedStars.map((s) => (
+            <div className="grid sm:grid-cols-2 gap-4 mb-10">
+              {related.map((n) => (
                 <Link
-                  key={s.id}
-                  to={`/stars/${s.id}`}
-                  className="card p-5 group hover:border-cosmos-accent/30"
+                  key={n.slug}
+                  to={`/nebulae/${n.slug}`}
+                  className="group rounded-xl overflow-hidden border border-white/[0.07] hover:border-[#7c6aff]/40 transition-colors"
                 >
-                  <h3 className="font-semibold text-cosmos-pure group-hover:text-cosmos-star transition-colors">
-                    {s.name}
-                  </h3>
-                  <p className="text-xs font-mono text-cosmos-glow mb-2">{s.designation}</p>
-                  <div className="flex gap-3 text-xs text-cosmos-silver">
-                    <span>mag {s.magnitude}</span>
-                    <span>{s.spectralType}</span>
-                    <span>{s.distance} ly</span>
+                  <div className="aspect-[16/9] overflow-hidden bg-black">
+                    <img
+                      src={`${import.meta.env.BASE_URL}${n.image}`}
+                      alt={n.name}
+                      loading="lazy"
+                      className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
+                    />
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-[14px] font-semibold text-[#f0f0f8]">{n.name}</h3>
+                    <p className="text-[12px] text-[#a0a0b8] mt-0.5">
+                      {n.catalog} · {n.type}
+                    </p>
                   </div>
                 </Link>
               ))}
             </div>
-          </section>
+          </>
         )}
 
-        {constellation.notableObjects.length > 0 && (
-          <section className="mt-12">
-            <h2 className="text-lg font-semibold text-cosmos-pure mb-4">Notable Objects</h2>
-            <div className="flex flex-wrap gap-2">
-              {constellation.notableObjects.map((obj) => (
-                <span
-                  key={obj}
-                  className="px-3 py-1.5 rounded-full bg-white/5 text-sm text-cosmos-silver border border-white/5"
-                >
-                  {obj}
-                </span>
-              ))}
-            </div>
-          </section>
-        )}
+        <p className="text-[11px] text-[#6b6b85]">
+          Star data: HYG database (Hipparcos / Yale Bright Star Catalog / Gliese). Figure: IAU via
+          d3-celestial. Distances are parallax-derived and carry real uncertainty, especially beyond
+          a few hundred light-years.
+        </p>
       </div>
     </div>
   )
+}
+
+function ModeButton({
+  active,
+  onClick,
+  icon,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  icon: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] transition-colors ${
+        active ? 'bg-[#7c6aff] text-white' : 'text-[#a0a0b8] hover:text-[#f0f0f8]'
+      }`}
+    >
+      {icon}
+      {children}
+    </button>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
+      <p className="text-[11px] uppercase tracking-wider text-[#6b6b85] mb-1.5">{label}</p>
+      <p className="text-[#f0f0f8] text-[17px] font-medium">{value}</p>
+    </div>
+  )
+}
+
+function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
+  return <th className={`px-4 py-2.5 font-medium ${right ? 'text-right' : 'text-left'}`}>{children}</th>
 }

@@ -5,8 +5,9 @@ import { Menu, X, Sparkles } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 const navLinks = [
-  { name: 'Explore', path: '/explore' },
+  { name: 'Open Sky', path: '/sky' },
   { name: 'Constellations', path: '/constellations' },
+  { name: 'Nebulae', path: '/nebulae' },
   { name: 'Stars', path: '/stars' },
   { name: 'Astrology', path: '/astrology' },
   { name: 'Pricing', path: '/pricing' },

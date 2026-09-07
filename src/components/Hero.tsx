@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Telescope, Sparkles } from 'lucide-react'
-import { StarFieldCanvas } from './StarField'
+import { NebulaField } from './NebulaField'
 
 export function Hero() {
   return (
@@ -16,14 +16,24 @@ export function Hero() {
           </div>
         }
       >
-        <StarFieldCanvas dense className="opacity-100" />
+        <NebulaField />
       </Suspense>
 
+      {/* Edge falloff only — the centre stays clear so the nebula reads. */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse 80% 70% at 50% 45%, transparent 0%, rgba(5,5,8,0.15) 45%, rgba(5,5,8,0.75) 100%)',
+            'radial-gradient(ellipse 85% 75% at 50% 45%, transparent 0%, rgba(5,5,8,0.10) 55%, rgba(5,5,8,0.72) 100%)',
+        }}
+      />
+      {/* Scrim sized to the copy block: enough contrast for type without
+          flattening the nebula behind it. */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(ellipse 42% 30% at 50% 42%, rgba(5,5,8,0.58) 0%, rgba(5,5,8,0.34) 50%, transparent 80%)',
         }}
       />
       <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#050508]/90 to-transparent pointer-events-none" />
@@ -39,7 +49,10 @@ export function Hero() {
             Cosmic Intelligence Platform
           </p>
 
-          <h1 className="text-[2.4rem] sm:text-[3.2rem] md:text-[4rem] lg:text-[4.75rem] font-semibold tracking-[-0.03em] leading-[1.05] text-[#f0f0f8] max-w-4xl mx-auto mb-7">
+          <h1
+            className="text-[2.4rem] sm:text-[3.2rem] md:text-[4rem] lg:text-[4.75rem] font-semibold tracking-[-0.03em] leading-[1.05] text-[#f0f0f8] max-w-4xl mx-auto mb-7"
+            style={{ textShadow: '0 2px 24px rgba(5,5,8,0.9), 0 0 60px rgba(5,5,8,0.7)' }}
+          >
             Explore the universe.
             <br />
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#e0d4ff] via-[#9b8cff] to-[#67e8f9]">
@@ -49,7 +62,10 @@ export function Hero() {
             Discover yourself.
           </h1>
 
-          <p className="text-[15px] md:text-base text-[#a0a0b8] max-w-xl mx-auto mb-12 leading-relaxed font-normal">
+          <p
+            className="text-[15px] md:text-base text-[#dcdcec] max-w-xl mx-auto mb-12 leading-relaxed font-normal"
+            style={{ textShadow: '0 1px 12px rgba(5,5,8,0.95), 0 0 32px rgba(5,5,8,0.8)' }}
+          >
             Free immersive astronomy. Premium personalized astrology.{' '}
             <br className="hidden sm:block" />
             One continuum from the sky to you.

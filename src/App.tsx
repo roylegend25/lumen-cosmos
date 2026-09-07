@@ -3,6 +3,8 @@ import { Navbar } from './components/Navbar'
 import { Footer } from './components/Footer'
 import { Home } from './pages/Home'
 import { Explore } from './pages/Explore'
+import { Sky } from './pages/Sky'
+import { Nebulae, NebulaDetail } from './pages/Nebulae'
 import { Constellations } from './pages/Constellations'
 import { ConstellationDetail } from './pages/ConstellationDetail'
 import { Stars } from './pages/Stars'
@@ -18,6 +20,9 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/explore" element={<Explore />} />
+          <Route path="/sky" element={<Sky />} />
+          <Route path="/nebulae" element={<Nebulae />} />
+          <Route path="/nebulae/:slug" element={<NebulaDetail />} />
           <Route path="/constellations" element={<Constellations />} />
           <Route path="/constellations/:id" element={<ConstellationDetail />} />
           <Route path="/stars" element={<Stars />} />
