@@ -23,11 +23,22 @@ export function Explore() {
 
   return (
     <div className="min-h-screen pt-20 pb-16">
-      <div className="relative w-full h-[36vh] min-h-[280px] max-h-[420px] border-b border-white/5 overflow-hidden">
-        <Suspense fallback={<div className="absolute inset-0 bg-cosmos-void" />}>
-          <StarFieldCanvas count={1800} radius={70} depth={50} size={0.12} speed={0.0002} />
+      <div className="relative w-full h-[44vh] min-h-[340px] max-h-[560px] border-b border-white/5 overflow-hidden">
+        <Suspense
+          fallback={
+            <div className="absolute inset-0 bg-[#050508] flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full border border-[#7c6aff]/40 border-t-[#9b8cff] animate-spin" />
+            </div>
+          }
+        >
+          <StarFieldCanvas dense className="opacity-100" />
         </Suspense>
-        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-cosmos-void to-transparent pointer-events-none" />
+        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#050508] to-transparent pointer-events-none" />
+        <div className="absolute bottom-5 left-0 right-0 text-center pointer-events-none">
+          <p className="text-[11px] tracking-[0.2em] uppercase text-[#a0a0b8]/70">
+            Luminous field · live particle system
+          </p>
+        </div>
       </div>
 
       <div className="section-padding container-wide pt-10">
@@ -48,7 +59,7 @@ export function Explore() {
               placeholder="Search constellations, stars, objects..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 rounded-full bg-cosmos-night/60 border border-white/10 text-cosmos-pure placeholder:text-cosmos-silver/50 focus:outline-none focus:border-cosmos-accent/50 transition-all"
+              className="w-full pl-11 pr-4 py-3 rounded-full bg-cosmos-night/60 border border-white/10 text-cosmos-pure placeholder:text-cosmos-silver/50 focus:outline-none focus:border-cosmos-accent/50 focus:ring-1 focus:ring-cosmos-accent/30 transition-all"
             />
           </div>
           <div className="flex gap-2">
@@ -57,7 +68,9 @@ export function Explore() {
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  filter === f ? 'bg-cosmos-accent text-white' : 'bg-white/5 text-cosmos-silver hover:bg-white/10'
+                  filter === f
+                    ? 'bg-cosmos-accent text-white shadow-[0_0_20px_rgba(124,106,255,0.3)]'
+                    : 'bg-white/5 text-cosmos-silver hover:bg-white/10'
                 }`}
               >
                 {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -73,17 +86,33 @@ export function Explore() {
               <h2 className="text-lg font-semibold text-cosmos-pure">Constellations</h2>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredConstellations.map((c) => (
-                <Link key={c.id} to={`/constellations/${c.id}`} className="card p-5 block group hover:border-cosmos-accent/30">
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="font-semibold text-cosmos-pure group-hover:text-cosmos-star transition-colors">{c.name}</h3>
-                    <span className="text-xs font-mono text-cosmos-silver bg-white/5 px-2 py-0.5 rounded">{c.abbreviation}</span>
-                  </div>
-                  <p className="text-sm text-cosmos-silver line-clamp-2 mb-3">{c.description}</p>
-                  <div className="flex items-center gap-3 text-xs text-cosmos-silver/70">
-                    <span>{c.hemisphere}</span><span>\u00b7</span><span>{c.area} deg\u00b2</span>
-                  </div>
-                </Link>
+              {filteredConstellations.map((c, i) => (
+                <motion.div
+                  key={c.id}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                >
+                  <Link
+                    to={`/constellations/${c.id}`}
+                    className="card p-5 block group hover:border-cosmos-accent/30 hover:shadow-[0_0_28px_rgba(124,106,255,0.1)]"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <h3 className="font-semibold text-cosmos-pure group-hover:text-cosmos-star transition-colors">
+                        {c.name}
+                      </h3>
+                      <span className="text-xs font-mono text-cosmos-silver bg-white/5 px-2 py-0.5 rounded">
+                        {c.abbreviation}
+                      </span>
+                    </div>
+                    <p className="text-sm text-cosmos-silver line-clamp-2 mb-3">{c.description}</p>
+                    <div className="flex items-center gap-3 text-xs text-cosmos-silver/70">
+                      <span>{c.hemisphere}</span>
+                      <span>·</span>
+                      <span>{c.area} deg²</span>
+                    </div>
+                  </Link>
+                </motion.div>
               ))}
             </div>
           </section>
@@ -96,18 +125,32 @@ export function Explore() {
               <h2 className="text-lg font-semibold text-cosmos-pure">Stars</h2>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredStars.map((s) => (
-                <Link key={s.id} to={`/stars/${s.id}`} className="card p-5 block group hover:border-cosmos-accent/30">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-semibold text-cosmos-pure group-hover:text-cosmos-star transition-colors">{s.name}</h3>
-                    <span className="text-xs font-mono text-cosmos-silver">mag {s.magnitude}</span>
-                  </div>
-                  <p className="text-xs font-mono text-cosmos-glow mb-2">{s.designation}</p>
-                  <p className="text-sm text-cosmos-silver line-clamp-2 mb-3">{s.description}</p>
-                  <div className="flex items-center gap-3 text-xs text-cosmos-silver/70">
-                    <span>{s.spectralType}</span><span>\u00b7</span><span>{s.distance} ly</span>
-                  </div>
-                </Link>
+              {filteredStars.map((s, i) => (
+                <motion.div
+                  key={s.id}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                >
+                  <Link
+                    to={`/stars/${s.id}`}
+                    className="card p-5 block group hover:border-cosmos-accent/30 hover:shadow-[0_0_28px_rgba(124,106,255,0.1)]"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-semibold text-cosmos-pure group-hover:text-cosmos-star transition-colors">
+                        {s.name}
+                      </h3>
+                      <span className="text-xs font-mono text-cosmos-silver">mag {s.magnitude}</span>
+                    </div>
+                    <p className="text-xs font-mono text-cosmos-glow mb-2">{s.designation}</p>
+                    <p className="text-sm text-cosmos-silver line-clamp-2 mb-3">{s.description}</p>
+                    <div className="flex items-center gap-3 text-xs text-cosmos-silver/70">
+                      <span>{s.spectralType}</span>
+                      <span>·</span>
+                      <span>{s.distance} ly</span>
+                    </div>
+                  </Link>
+                </motion.div>
               ))}
             </div>
           </section>
