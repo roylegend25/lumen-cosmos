@@ -1,5 +1,6 @@
 import { useRef, useMemo } from 'react'
-import { useFrame, Canvas } from '@react-three/fiber'
+import { useFrame, Canvas, useThree } from '@react-three/fiber'
+import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
 
 /* Custom shader materials — multi-layer luminous particle field
@@ -204,38 +205,93 @@ function SpiralArms({ count = 3200 }: { count?: number }) {
   )
 }
 
-function CoreGlow() {
-  const mesh = useRef<THREE.Mesh>(null)
+const glowVertexShader = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`
+
+const glowFragmentShader = /* glsl */ `
+  uniform vec3 uColor;
+  uniform float uIntensity;
+  uniform float uFalloff;
+  varying vec2 vUv;
+
+  void main() {
+    float d = length(vUv - 0.5) * 2.0;
+    float a = pow(clamp(1.0 - d, 0.0, 1.0), uFalloff) * uIntensity;
+    gl_FragColor = vec4(uColor * a, a);
+  }
+`
+
+/**
+ * Radial-falloff billboard. A solid sphere with a basic material shades
+ * uniformly and reads as a flat disc, so the glow is drawn in the shader.
+ */
+function Glow({
+  radius,
+  color,
+  intensity,
+  falloff,
+  pulse = 0,
+}: {
+  radius: number
+  color: string
+  intensity: number
+  falloff: number
+  pulse?: number
+}) {
+  const mat = useRef<THREE.ShaderMaterial>(null)
+
+  const uniforms = useMemo(
+    () => ({
+      uColor: { value: new THREE.Color(color) },
+      uIntensity: { value: intensity },
+      uFalloff: { value: falloff },
+    }),
+    [color, intensity, falloff],
+  )
+
   useFrame((state) => {
-    if (!mesh.current) return
+    if (!mat.current || pulse === 0) return
     const t = state.clock.elapsedTime
-    mesh.current.rotation.z = t * 0.04
-    const mat = mesh.current.material as THREE.MeshBasicMaterial
-    mat.opacity = 0.18 + Math.sin(t * 0.5) * 0.06
-    const s = 1 + Math.sin(t * 0.35) * 0.04
-    mesh.current.scale.setScalar(s)
+    mat.current.uniforms.uIntensity.value = intensity * (1 + Math.sin(t * 0.5) * pulse)
   })
+
   return (
-    <mesh ref={mesh}>
-      <sphereGeometry args={[6, 48, 48]} />
-      <meshBasicMaterial color="#9b8cff" transparent opacity={0.2} blending={THREE.AdditiveBlending} depthWrite={false} />
+    <mesh scale={[radius, radius, 1]}>
+      <planeGeometry args={[2, 2]} />
+      <shaderMaterial
+        ref={mat}
+        vertexShader={glowVertexShader}
+        fragmentShader={glowFragmentShader}
+        uniforms={uniforms}
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
     </mesh>
   )
 }
 
-function InnerCore() {
-  const mesh = useRef<THREE.Mesh>(null)
-  useFrame((state) => {
-    if (!mesh.current) return
-    const t = state.clock.elapsedTime
-    mesh.current.rotation.y = t * 0.1
-    mesh.current.rotation.x = t * 0.05
-  })
+/**
+ * The spiral sits at the origin, which the camera looks straight at — i.e.
+ * directly behind the centred hero copy. Offsetting it keeps the type legible
+ * and pulls it toward frame centre on narrow viewports where it would clip.
+ */
+function GalaxyPlacement({ children }: { children: React.ReactNode }) {
+  const width = useThree((s) => s.size.width)
+  const narrow = width < 768
+
   return (
-    <mesh ref={mesh}>
-      <sphereGeometry args={[1.8, 32, 32]} />
-      <meshBasicMaterial color="#f0e8ff" transparent opacity={0.55} blending={THREE.AdditiveBlending} depthWrite={false} />
-    </mesh>
+    <group
+      position={narrow ? [1, -8, -14] : [11, -12, -6]}
+      scale={narrow ? 0.7 : 0.9}
+    >
+      {children}
+    </group>
   )
 }
 
@@ -248,9 +304,11 @@ function Scene({ dense = true }: { dense?: boolean }) {
   return (
     <>
       <DeepField count={dense ? 4200 : 2200} />
-      {!prefersReduced && <SpiralArms count={dense ? 3600 : 1800} />}
-      <CoreGlow />
-      <InnerCore />
+      <GalaxyPlacement>
+        {!prefersReduced && <SpiralArms count={dense ? 3600 : 1800} />}
+        <Glow radius={9} color="#7c6aff" intensity={0.5} falloff={3.0} pulse={0.18} />
+        <Glow radius={2.6} color="#f0e8ff" intensity={0.85} falloff={2.2} />
+      </GalaxyPlacement>
       <fog attach="fog" args={['#050508', 50, 140]} />
     </>
   )
@@ -286,6 +344,15 @@ export function StarFieldCanvas({
       >
         <color attach="background" args={['#050508']} />
         <Scene dense={dense} />
+        <EffectComposer>
+          <Bloom
+            intensity={0.6}
+            luminanceThreshold={0.55}
+            luminanceSmoothing={0.3}
+            mipmapBlur
+            radius={0.6}
+          />
+        </EffectComposer>
       </Canvas>
     </div>
   )

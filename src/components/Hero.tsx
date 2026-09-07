@@ -50,7 +50,7 @@ export function Hero() {
           </h1>
 
           <p className="text-[15px] md:text-base text-[#a0a0b8] max-w-xl mx-auto mb-12 leading-relaxed font-normal">
-            Free immersive astronomy. Premium personalized astrology.
+            Free immersive astronomy. Premium personalized astrology.{' '}
             <br className="hidden sm:block" />
             One continuum from the sky to you.
           </p>
