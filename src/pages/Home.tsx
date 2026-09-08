@@ -1,5 +1,6 @@
 import { Hero } from '../components/Hero'
 import { NebulaJourney } from '../components/NebulaField'
+import { QuietBoundary } from '../components/QuietBoundary'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { Star, Globe, Layers, Compass } from 'lucide-react'
@@ -30,7 +31,9 @@ const features = [
 export function Home() {
   return (
     <div>
-      <NebulaJourney />
+      <QuietBoundary>
+        <NebulaJourney />
+      </QuietBoundary>
       <Hero />
 
       <section className="section-padding py-24 md:py-32 relative z-10">

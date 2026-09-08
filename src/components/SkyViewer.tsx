@@ -143,15 +143,31 @@ const SKY_FRAG = /* glsl */ `
   varying vec3 vColor;
   varying float vTw;
   varying float vBelow;
+
   void main() {
-    vec2 p = gl_PointCoord - 0.5;
+    vec2 p = (gl_PointCoord - 0.5) * 2.0;
     float d = length(p);
-    if (d > 0.5) discard;
-    float g = pow(smoothstep(0.5, 0.0, d), 3.0);
+    if (d > 1.0) discard;
+
+    // Core, halo and four-point diffraction spikes. A plain disc reads as a
+    // dot; the spikes are what make the eye accept it as a star.
+    float core = exp(-d * d * 26.0);
+    float halo = exp(-d * 3.4) * 0.24;
+    float ax = abs(p.x);
+    float ay = abs(p.y);
+    float sx = exp(-ax * ax * 340.0) * exp(-ay * 3.0);
+    float sy = exp(-ay * ay * 340.0) * exp(-ax * 3.0);
+    float spikes = (sx + sy) * 0.42;
+
+    float i = (core + halo + spikes) * vTw;
+    i *= smoothstep(1.0, 0.74, d);
+
     // Stars under the horizon are kept but heavily suppressed, so the sky
     // reads as a real hemisphere rather than a sphere floating in space.
-    float below = mix(1.0, 0.06, vBelow);
-    gl_FragColor = vec4(vColor * (0.35 + g), g * vTw * below);
+    i *= mix(1.0, 0.05, vBelow);
+
+    vec3 col = mix(vColor, vec3(1.0), core * 0.7);
+    gl_FragColor = vec4(col * i, i);
   }
 `
 
@@ -189,7 +205,8 @@ function Stars({
       colors[i * 3 + 1] = g
       colors[i * 3 + 2] = b
 
-      sizes[i] = 1.6 + magToBrightness(mag, sky.magLimit) * 10
+      // Power curve so first-magnitude stars stand out from the field.
+      sizes[i] = 2.2 + Math.pow(magToBrightness(mag, sky.magLimit), 1.5) * 16
       phases[i] = (i * 0.6180339887) % 1
     }
     return { positions, colors, sizes, phases }

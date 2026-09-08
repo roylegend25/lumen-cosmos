@@ -153,7 +153,7 @@ function Plate({
   input,
   reduced,
 }: PlateProps) {
-  const map = useLoader(THREE.TextureLoader, assetUrl(`nebulae/${slug}.jpg`))
+  const map = useLoader(THREE.TextureLoader, assetUrl(`nebulae/${slug}.webp`))
   const mesh = useRef<THREE.Mesh>(null)
   const { size } = useThree()
 

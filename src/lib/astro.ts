@@ -56,6 +56,14 @@ export interface BrightStar {
   slug: string
 }
 
+export interface Chart {
+  file: string
+  credit: string
+  license: string
+  licenseUrl: string | null
+  source: string | null
+}
+
 export interface Nebula {
   slug: string
   name: string
@@ -268,9 +276,21 @@ const GREEK: Record<string, string> = {
   Tau: 'τ', Ups: 'υ', Phi: 'φ', Chi: 'χ', Psi: 'ψ', Ome: 'ω',
 }
 
+const SUPERSCRIPT: Record<string, string> = {
+  '1': '\u00b9', '2': '\u00b2', '3': '\u00b3', '4': '\u2074', '5': '\u2075',
+  '6': '\u2076', '7': '\u2077', '8': '\u2078', '9': '\u2079',
+}
+
+/**
+ * HYG writes numbered Bayer designations as "Alp-2" (alpha-2 Canum
+ * Venaticorum). Rendering that raw leaks the catalogue's encoding into the UI.
+ */
 export function greekLetter(bayer: string | null): string | null {
   if (!bayer) return null
-  return GREEK[bayer] ?? bayer
+  const m = bayer.match(/^([A-Za-z]+)(?:-(\d))?$/)
+  if (!m) return bayer
+  const base = GREEK[m[1]] ?? m[1]
+  return m[2] ? `${base}${SUPERSCRIPT[m[2]] ?? m[2]}` : base
 }
 
 /** Bayer/Flamsteed designation rendered with the constellation genitive. */
@@ -302,6 +322,7 @@ export const loadSky = () => loadJSON<SkyData>('sky.json')
 export const loadConstellations = () => loadJSON<Constellation[]>('constellations.json')
 export const loadNebulae = () => loadJSON<Nebula[]>('nebulae.json')
 export const loadStars = () => loadJSON<BrightStar[]>('stars.json')
+export const loadCharts = () => loadJSON<Record<string, Chart>>('charts.json')
 
 /** Leading spectral class letter, e.g. "M2Iab" -> "M". */
 export function spectralClass(sp: string | null): string | null {

@@ -2,20 +2,29 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import {
+  assetUrl,
   bvToRGB,
   bvToTemp,
   greekLetter,
+  loadCharts,
+  loadNebulae,
   loadStars,
   spectralInfo,
   type BrightStar,
+  type Chart,
+  type Nebula,
 } from '../lib/astro'
 
 export function StarDetail() {
   const { id } = useParams<{ id: string }>()
   const [all, setAll] = useState<BrightStar[] | null>(null)
+  const [charts, setCharts] = useState<Record<string, Chart>>({})
+  const [deepsky, setDeepsky] = useState<Nebula[]>([])
 
   useEffect(() => {
     loadStars().then(setAll).catch(() => setAll([]))
+    loadCharts().then(setCharts).catch(() => setCharts({}))
+    loadNebulae().then(setDeepsky).catch(() => setDeepsky([]))
   }, [])
 
   const s = useMemo(() => {
@@ -59,6 +68,8 @@ export function StarDetail() {
   const css = `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`
   const temp = Math.round(bvToTemp(s.ci) / 10) * 10
   const info = spectralInfo(s.sp)
+  const chart = s.con ? charts[s.con] ?? null : null
+  const sibling = s.con ? deepsky.find((n) => n.conId === s.con) ?? null : null
 
   return (
     <div className="section-padding container-wide pt-24 pb-20">
@@ -76,9 +87,11 @@ export function StarDetail() {
         />
         <div>
           {s.conName && (
-            <p className="text-[11px] font-medium tracking-[0.28em] uppercase text-[#9b8cff]/90 mb-2">
-              {greekLetter(s.b) ? `${greekLetter(s.b)} · ` : ''}
-              {s.conName}
+            <p className="text-[11px] font-medium tracking-[0.28em] text-[#9b8cff]/90 mb-2">
+              {greekLetter(s.b) && (
+                <span className="normal-case text-[13px]">{greekLetter(s.b)} · </span>
+              )}
+              <span className="uppercase">{s.conName}</span>
             </p>
           )}
           <h1 className="text-[2.2rem] md:text-[3rem] font-semibold tracking-[-0.02em] text-[#f0f0f8]">
@@ -121,6 +134,54 @@ export function StarDetail() {
           note="RA / Dec (J2000)"
         />
       </div>
+
+      {chart && (
+        <div className="grid lg:grid-cols-[1fr_340px] gap-4 mb-10">
+          <div className="rounded-2xl overflow-hidden border border-white/[0.07] bg-white flex items-center justify-center max-h-[70vh]">
+            <img
+              src={assetUrl(chart.file)}
+              alt={`IAU chart for ${s.conName}, showing the position of ${s.name ?? 'this star'}`}
+              loading="lazy"
+              className="w-full h-auto max-h-[70vh] object-contain"
+            />
+          </div>
+          <div className="flex flex-col justify-center gap-4">
+            <div>
+              <h2 className="text-[1.1rem] font-semibold text-[#f0f0f8] mb-2">Where to find it</h2>
+              <p className="text-[13px] text-[#a0a0b8] leading-relaxed mb-2">
+                {s.name ?? 'This star'} sits in {s.conName}. Stars are unresolved points even to
+                large telescopes, so this is the official IAU chart of its constellation rather
+                than a photograph of the star itself.
+              </p>
+              <p className="text-[11px] text-[#6b6b85]">
+                {chart.credit} · {chart.license}
+              </p>
+            </div>
+
+            {sibling && (
+              <Link
+                to={`/nebulae/${sibling.slug}`}
+                className="group rounded-xl overflow-hidden border border-white/[0.07] hover:border-[#7c6aff]/40 transition-colors"
+              >
+                <div className="aspect-[16/9] overflow-hidden bg-black">
+                  <img
+                    src={assetUrl(sibling.image)}
+                    alt={sibling.name}
+                    loading="lazy"
+                    className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-700"
+                  />
+                </div>
+                <div className="p-3">
+                  <p className="text-[12px] text-[#f0f0f8] font-medium">{sibling.name}</p>
+                  <p className="text-[11px] text-[#a0a0b8]">
+                    Also in {s.conName} · {sibling.catalog}
+                  </p>
+                </div>
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
 
       {s.ly !== null && (
         <p className="text-[14px] text-[#a0a0b8] leading-relaxed max-w-3xl mb-10">

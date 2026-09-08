@@ -13,7 +13,6 @@ export function Stars() {
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<Sort>('brightness')
   const [radius, setRadius] = useState(100)
-  const [selected, setSelected] = useState<string | null>(null)
 
   useEffect(() => {
     loadStars().then(setAll).catch(() => setAll([]))
@@ -69,11 +68,7 @@ export function Stars() {
         <StarMap3D
           stars={all}
           radiusLy={radius}
-          selectedSlug={selected}
-          onSelect={(slug) => {
-            setSelected(slug)
-            nav(`/stars/${slug}`)
-          }}
+          onSelect={(slug) => nav(`/stars/${slug}`)}
           className="h-[54vh] min-h-[380px]"
         />
       </div>

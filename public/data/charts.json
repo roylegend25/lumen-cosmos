@@ -1,0 +1,618 @@
+{
+ "And": {
+  "file": "charts/And.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Andromeda_IAU.svg"
+ },
+ "Ant": {
+  "file": "charts/Ant.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Antlia_IAU.svg"
+ },
+ "Aps": {
+  "file": "charts/Aps.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Apus_IAU.svg"
+ },
+ "Aqr": {
+  "file": "charts/Aqr.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Aquarius_IAU.svg"
+ },
+ "Aql": {
+  "file": "charts/Aql.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Aquila_IAU.svg"
+ },
+ "Ara": {
+  "file": "charts/Ara.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Ara_IAU.svg"
+ },
+ "Ari": {
+  "file": "charts/Ari.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Aries_IAU.svg"
+ },
+ "Aur": {
+  "file": "charts/Aur.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Auriga_IAU.svg"
+ },
+ "Boo": {
+  "file": "charts/Boo.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Bo%C3%B6tes_IAU.svg"
+ },
+ "Cae": {
+  "file": "charts/Cae.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Caelum_IAU.svg"
+ },
+ "Cam": {
+  "file": "charts/Cam.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Camelopardalis_IAU.svg"
+ },
+ "Cnc": {
+  "file": "charts/Cnc.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Cancer_IAU.svg"
+ },
+ "CVn": {
+  "file": "charts/CVn.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Canes_Venatici_IAU.svg"
+ },
+ "CMa": {
+  "file": "charts/CMa.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Canis_Major_IAU.svg"
+ },
+ "CMi": {
+  "file": "charts/CMi.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Canis_Minor_IAU.svg"
+ },
+ "Cap": {
+  "file": "charts/Cap.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Capricornus_IAU.svg"
+ },
+ "Car": {
+  "file": "charts/Car.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Carina_IAU.svg"
+ },
+ "Cas": {
+  "file": "charts/Cas.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Cassiopeia_IAU.svg"
+ },
+ "Cen": {
+  "file": "charts/Cen.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Centaurus_IAU.svg"
+ },
+ "Cep": {
+  "file": "charts/Cep.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Cepheus_IAU.svg"
+ },
+ "Cet": {
+  "file": "charts/Cet.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Cetus_IAU.svg"
+ },
+ "Cha": {
+  "file": "charts/Cha.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Chamaeleon_IAU.svg"
+ },
+ "Cir": {
+  "file": "charts/Cir.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Circinus_IAU.svg"
+ },
+ "Col": {
+  "file": "charts/Col.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Columba_IAU.svg"
+ },
+ "Com": {
+  "file": "charts/Com.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Coma_Berenices_IAU.svg"
+ },
+ "CrA": {
+  "file": "charts/CrA.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Corona_Australis_IAU.svg"
+ },
+ "CrB": {
+  "file": "charts/CrB.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Corona_Borealis_IAU.svg"
+ },
+ "Crv": {
+  "file": "charts/Crv.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Corvus_IAU.svg"
+ },
+ "Crt": {
+  "file": "charts/Crt.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Crater_IAU.svg"
+ },
+ "Cru": {
+  "file": "charts/Cru.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Crux_IAU.svg"
+ },
+ "Cyg": {
+  "file": "charts/Cyg.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Cygnus_IAU.svg"
+ },
+ "Del": {
+  "file": "charts/Del.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Delphinus_IAU.svg"
+ },
+ "Dor": {
+  "file": "charts/Dor.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Dorado_IAU.svg"
+ },
+ "Dra": {
+  "file": "charts/Dra.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Draco_IAU.svg"
+ },
+ "Equ": {
+  "file": "charts/Equ.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Equuleus_IAU.svg"
+ },
+ "Eri": {
+  "file": "charts/Eri.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Eridanus_IAU.svg"
+ },
+ "Gem": {
+  "file": "charts/Gem.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Gemini_IAU.svg"
+ },
+ "Gru": {
+  "file": "charts/Gru.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Grus_IAU.svg"
+ },
+ "For": {
+  "file": "charts/For.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Fornax_IAU.svg"
+ },
+ "Her": {
+  "file": "charts/Her.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Hercules_IAU.svg"
+ },
+ "Hor": {
+  "file": "charts/Hor.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Horologium_IAU.svg"
+ },
+ "Hya": {
+  "file": "charts/Hya.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Hydra_IAU.svg"
+ },
+ "Hyi": {
+  "file": "charts/Hyi.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Hydrus_IAU.svg"
+ },
+ "Ind": {
+  "file": "charts/Ind.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Indus_IAU.svg"
+ },
+ "Lac": {
+  "file": "charts/Lac.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Lacerta_IAU.svg"
+ },
+ "Leo": {
+  "file": "charts/Leo.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Leo_IAU.svg"
+ },
+ "LMi": {
+  "file": "charts/LMi.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Leo_Minor_IAU.svg"
+ },
+ "Lep": {
+  "file": "charts/Lep.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Lepus_IAU.svg"
+ },
+ "Lib": {
+  "file": "charts/Lib.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Libra_IAU.svg"
+ },
+ "Lup": {
+  "file": "charts/Lup.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Lupus_IAU.svg"
+ },
+ "Lyn": {
+  "file": "charts/Lyn.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Lynx_IAU.svg"
+ },
+ "Lyr": {
+  "file": "charts/Lyr.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Lyra_IAU.svg"
+ },
+ "Men": {
+  "file": "charts/Men.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Mensa_IAU.svg"
+ },
+ "Mic": {
+  "file": "charts/Mic.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Microscopium_IAU.svg"
+ },
+ "Mon": {
+  "file": "charts/Mon.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Monoceros_IAU.svg"
+ },
+ "Mus": {
+  "file": "charts/Mus.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Musca_IAU.svg"
+ },
+ "Nor": {
+  "file": "charts/Nor.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Norma_IAU.svg"
+ },
+ "Oct": {
+  "file": "charts/Oct.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Octans_IAU.svg"
+ },
+ "Oph": {
+  "file": "charts/Oph.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Ophiuchus_IAU.svg"
+ },
+ "Ori": {
+  "file": "charts/Ori.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Orion_IAU.svg"
+ },
+ "Pav": {
+  "file": "charts/Pav.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Pavo_IAU.svg"
+ },
+ "Peg": {
+  "file": "charts/Peg.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Pegasus_IAU.svg"
+ },
+ "Per": {
+  "file": "charts/Per.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Perseus_IAU.svg"
+ },
+ "Phe": {
+  "file": "charts/Phe.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Phoenix_IAU.svg"
+ },
+ "Pic": {
+  "file": "charts/Pic.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Pictor_IAU.svg"
+ },
+ "Psc": {
+  "file": "charts/Psc.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Pisces_IAU.svg"
+ },
+ "PsA": {
+  "file": "charts/PsA.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Piscis_Austrinus_IAU.svg"
+ },
+ "Pup": {
+  "file": "charts/Pup.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Puppis_IAU.svg"
+ },
+ "Pyx": {
+  "file": "charts/Pyx.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Pyxis_IAU.svg"
+ },
+ "Ret": {
+  "file": "charts/Ret.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Reticulum_IAU.svg"
+ },
+ "Sge": {
+  "file": "charts/Sge.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Sagitta_IAU.svg"
+ },
+ "Sgr": {
+  "file": "charts/Sgr.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Sagittarius_IAU.svg"
+ },
+ "Sco": {
+  "file": "charts/Sco.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Scorpius_IAU.svg"
+ },
+ "Scl": {
+  "file": "charts/Scl.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Sculptor_IAU.svg"
+ },
+ "Sct": {
+  "file": "charts/Sct.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Scutum_IAU.svg"
+ },
+ "Ser": {
+  "file": "charts/Ser.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Serpens_Caput_IAU.svg"
+ },
+ "Sex": {
+  "file": "charts/Sex.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Sextans_IAU.svg"
+ },
+ "Tau": {
+  "file": "charts/Tau.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Taurus_IAU.svg"
+ },
+ "Tel": {
+  "file": "charts/Tel.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Telescopium_IAU.svg"
+ },
+ "Tri": {
+  "file": "charts/Tri.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Triangulum_IAU.svg"
+ },
+ "TrA": {
+  "file": "charts/TrA.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Triangulum_Australe_IAU.svg"
+ },
+ "Tuc": {
+  "file": "charts/Tuc.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Tucana_IAU.svg"
+ },
+ "UMa": {
+  "file": "charts/UMa.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Ursa_Major_IAU.svg"
+ },
+ "UMi": {
+  "file": "charts/UMi.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Ursa_Minor_IAU.svg"
+ },
+ "Vel": {
+  "file": "charts/Vel.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Vela_IAU.svg"
+ },
+ "Vir": {
+  "file": "charts/Vir.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Virgo_IAU.svg"
+ },
+ "Vol": {
+  "file": "charts/Vol.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Volans_IAU.svg"
+ },
+ "Vul": {
+  "file": "charts/Vul.webp",
+  "credit": "IAU and Sky & Telescope magazine (Roger Sinnott & Rick Fienberg)",
+  "license": "CC BY 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Vulpecula_IAU.svg"
+ }
+}

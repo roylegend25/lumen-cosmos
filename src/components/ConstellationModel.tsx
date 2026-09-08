@@ -1,15 +1,17 @@
-import { useMemo, useState } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { useMemo, useRef, useState } from 'react'
+import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, Html } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import {
   bvToRGB,
   greekLetter,
+  magToBrightness,
   radecToVec3,
   type Constellation,
   type ConstellationStar,
 } from '../lib/astro'
+import { STAR_SPRITE_FRAG, STAR_SPRITE_VERT, starSpriteUniforms } from '../lib/starShader'
 
 /**
  * Two ways to look at a constellation:
@@ -31,7 +33,12 @@ function starPosition(s: ConstellationStar, mode: ViewMode, maxLy: number): THRE
   return radecToVec3(s.ra, s.dec, 14 + t * 62)
 }
 
-function StarPoints({
+/**
+ * All stars in one draw call as sprites rather than one sphere mesh each:
+ * spheres shade flat and read as dots, and dozens of meshes cost more than
+ * a single buffer.
+ */
+function StarSprites({
   stars,
   mode,
   maxLy,
@@ -42,36 +49,70 @@ function StarPoints({
   maxLy: number
   onHover: (i: number | null) => void
 }) {
-  const items = useMemo(
-    () =>
-      stars.map((s) => {
-        const p = starPosition(s, mode, maxLy)
-        const [r, g, b] = bvToRGB(s.ci)
-        // Keep the spread wide but the absolute sizes small: with bloom on top,
-        // large spheres merge into one mass and the figure stops being readable.
-        const radius = 0.16 + Math.max(0, 5.6 - s.mag) * 0.125
-        return { s, p, color: new THREE.Color(r, g, b), radius }
-      }),
-    [stars, mode, maxLy],
+  const mat = useRef<THREE.ShaderMaterial>(null)
+
+  const { positions, colors, sizes, phases } = useMemo(() => {
+    const n = stars.length
+    const positions = new Float32Array(n * 3)
+    const colors = new Float32Array(n * 3)
+    const sizes = new Float32Array(n)
+    const phases = new Float32Array(n)
+
+    for (let i = 0; i < n; i++) {
+      const s = stars[i]
+      const p = starPosition(s, mode, maxLy)
+      positions[i * 3] = p.x
+      positions[i * 3 + 1] = p.y
+      positions[i * 3 + 2] = p.z
+
+      const [r, g, b] = bvToRGB(s.ci)
+      colors[i * 3] = r
+      colors[i * 3 + 1] = g
+      colors[i * 3 + 2] = b
+
+      // Wide dynamic range so first-magnitude stars clearly dominate.
+      // Raised to a power so first-magnitude stars clearly dominate the
+      // figure instead of every member reading at a similar weight.
+      sizes[i] = 0.55 + Math.pow(magToBrightness(s.mag, 6), 1.55) * 4.3
+      phases[i] = (i * 0.6180339887) % 1
+    }
+    return { positions, colors, sizes, phases }
+  }, [stars, mode, maxLy])
+
+  useFrame((state) => {
+    if (mat.current) mat.current.uniforms.uTime.value = state.clock.elapsedTime
+  })
+
+  const uniforms = useMemo(
+    () => starSpriteUniforms({ scale: 0.8, spikes: 0.52, halo: 0.3, twinkle: 0.16 }),
+    [],
   )
 
   return (
-    <group>
-      {items.map((it, i) => (
-        <mesh
-          key={i}
-          position={it.p}
-          onPointerOver={(e) => {
-            e.stopPropagation()
-            onHover(i)
-          }}
-          onPointerOut={() => onHover(null)}
-        >
-          <sphereGeometry args={[it.radius, 16, 16]} />
-          <meshBasicMaterial color={it.color} toneMapped={false} />
-        </mesh>
-      ))}
-    </group>
+    <points
+      frustumCulled={false}
+      onPointerMove={(e: ThreeEvent<PointerEvent>) => {
+        e.stopPropagation()
+        if (typeof e.index === 'number') onHover(e.index)
+      }}
+      onPointerOut={() => onHover(null)}
+    >
+      <bufferGeometry key={`${stars.length}-${mode}`}>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-aColor" args={[colors, 3]} />
+        <bufferAttribute attach="attributes-aSize" args={[sizes, 1]} />
+        <bufferAttribute attach="attributes-aPhase" args={[phases, 1]} />
+      </bufferGeometry>
+      <shaderMaterial
+        ref={mat}
+        vertexShader={STAR_SPRITE_VERT}
+        fragmentShader={STAR_SPRITE_FRAG}
+        uniforms={uniforms}
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
   )
 }
 
@@ -116,19 +157,17 @@ function FigureLines({
   if (!positions.length) return null
 
   return (
-    <group>
-      <lineSegments frustumCulled={false}>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        </bufferGeometry>
-        <lineBasicMaterial
-          color="#9b8cff"
-          transparent
-          opacity={mode === 'pattern' ? 0.75 : 0.35}
-          depthWrite={false}
-        />
-      </lineSegments>
-    </group>
+    <lineSegments frustumCulled={false}>
+      <bufferGeometry key={`${positions.length}-${mode}`}>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <lineBasicMaterial
+        color="#8ea2ff"
+        transparent
+        opacity={mode === 'pattern' ? 0.42 : 0.22}
+        depthWrite={false}
+      />
+    </lineSegments>
   )
 }
 
@@ -147,9 +186,10 @@ export function ConstellationModel({
 }) {
   const [hover, setHover] = useState<number | null>(null)
 
-  // Only the brighter members; the full tail is visual noise at this scale.
+  // Reach a little fainter than naked eye so figures have depth behind the
+  // headline stars, but not so far that the shape drowns.
   const stars = useMemo(
-    () => constellation.stars.filter((s) => s.mag <= 5.0).slice(0, 34),
+    () => constellation.stars.filter((s) => s.mag <= 5.6).slice(0, 48),
     [constellation],
   )
 
@@ -173,12 +213,9 @@ export function ConstellationModel({
 
     const q = new THREE.Quaternion().setFromUnitVectors(centroid, new THREE.Vector3(0, 0, 1))
 
-    // Frame to the figure's own angular size so small and sprawling
-    // constellations both fill the viewport sensibly.
     let maxAngle = 0
     for (const s of stars) {
-      const d = radecToVec3(s.ra, s.dec, 1)
-      maxAngle = Math.max(maxAngle, centroid.angleTo(d))
+      maxAngle = Math.max(maxAngle, centroid.angleTo(radecToVec3(s.ra, s.dec, 1)))
     }
     const spread = Math.max(0.12, Math.min(maxAngle, 0.85))
     const extent = Math.sin(spread) * SHELL
@@ -194,11 +231,14 @@ export function ConstellationModel({
         camera={{ position: [0, 0, distance], fov: 48, near: 0.1, far: 900 }}
         dpr={[1, 1.75]}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+        // Points need an explicit pick radius; the default is far too tight
+        // for sprite-sized stars.
+        raycaster={{ params: { Points: { threshold: 1.6 } } as THREE.RaycasterParameters }}
         style={{ background: 'transparent' }}
       >
         <group quaternion={quaternion}>
-          <StarPoints stars={stars} mode={mode} maxLy={maxLy} onHover={setHover} />
           <FigureLines constellation={constellation} mode={mode} maxLy={maxLy} />
+          <StarSprites stars={stars} mode={mode} maxLy={maxLy} onHover={setHover} />
 
           {hovered && (
             <Html center position={starPosition(hovered, mode, maxLy)} style={{ pointerEvents: 'none' }}>
@@ -226,13 +266,13 @@ export function ConstellationModel({
           zoomSpeed={0.8}
           rotateSpeed={0.55}
           autoRotate={spin}
-          autoRotateSpeed={0.45}
+          autoRotateSpeed={0.4}
           enableDamping
           dampingFactor={0.09}
           onStart={onInteract}
         />
         <EffectComposer>
-          <Bloom intensity={0.45} luminanceThreshold={0.62} luminanceSmoothing={0.25} mipmapBlur radius={0.45} />
+          <Bloom intensity={0.55} luminanceThreshold={0.5} luminanceSmoothing={0.25} mipmapBlur radius={0.55} />
         </EffectComposer>
       </Canvas>
     </div>

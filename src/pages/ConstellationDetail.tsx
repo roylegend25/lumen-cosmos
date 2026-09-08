@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Loader2, Orbit, Layers } from 'lucide-react'
 import { ConstellationModel, type ViewMode } from '../components/ConstellationModel'
-import { assetUrl } from '../lib/astro'
+import { assetUrl, loadCharts, type Chart } from '../lib/astro'
 import {
   designation,
   formatLy,
@@ -18,10 +18,12 @@ export function ConstellationDetail() {
   const [nebulae, setNebulae] = useState<Nebula[]>([])
   const [mode, setMode] = useState<ViewMode>('pattern')
   const [spin, setSpin] = useState(true)
+  const [charts, setCharts] = useState<Record<string, Chart>>({})
 
   useEffect(() => {
     loadConstellations().then(setAll).catch(() => setAll([]))
     loadNebulae().then(setNebulae).catch(() => setNebulae([]))
+    loadCharts().then(setCharts).catch(() => setCharts({}))
   }, [])
 
   const c = useMemo(() => {
@@ -62,6 +64,7 @@ export function ConstellationDetail() {
   }
 
   const named = c.stars.filter((s) => s.n)
+  const chart = charts[c.id] ?? null
 
   return (
     <div className="relative">
@@ -142,6 +145,45 @@ export function ConstellationDetail() {
             ? 'Every star projected onto one shell — the figure as it looks from Earth. Drag to orbit, scroll to zoom, hover a star for its data.'
             : 'Each star placed at its catalogued distance (log-compressed). The familiar shape only exists from our line of sight.'}
         </p>
+
+        {chart && (
+          <div className="grid lg:grid-cols-[1fr_320px] gap-4 mb-10">
+            <div className="rounded-2xl overflow-hidden border border-white/[0.07] bg-white flex items-center justify-center max-h-[75vh]">
+              <img
+                src={assetUrl(chart.file)}
+                alt={`Official IAU star chart for ${c.name}`}
+                loading="lazy"
+                className="w-full h-auto max-h-[75vh] object-contain"
+              />
+            </div>
+            <div className="flex flex-col justify-center">
+              <h2 className="text-[1.1rem] font-semibold text-[#f0f0f8] mb-2">
+                The official chart
+              </h2>
+              <p className="text-[13px] text-[#a0a0b8] leading-relaxed mb-3">
+                This is the IAU's own map of {c.name} — the boundaries that formally define the
+                constellation, with every star down to about magnitude 6 and the figure drawn the
+                way the union standardised it in 1922.
+              </p>
+              <p className="text-[11px] text-[#6b6b85] leading-relaxed">
+                {chart.credit} · {chart.license}
+                {chart.source && (
+                  <>
+                    {' · '}
+                    <a
+                      href={chart.source}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[#9b8cff] hover:text-[#c084fc]"
+                    >
+                      source
+                    </a>
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="grid md:grid-cols-4 gap-4 mb-10">
           <Stat label="Stars to mag 6.5" value={c.starCount.toLocaleString()} />
