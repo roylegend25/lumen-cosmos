@@ -1,5 +1,5 @@
-import { useRef, useMemo, useEffect, Suspense, type RefObject } from 'react'
-import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
+import { useRef, useMemo, useEffect, useState, type RefObject } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { assetUrl, bvToRGB } from '../lib/astro'
@@ -137,6 +137,49 @@ interface PlateProps {
   reduced: boolean
 }
 
+/**
+ * Loads a plate only once the flight is near it, outside Suspense.
+ *
+ * These are 2000-2400px masters; fetching all nine up front would cost
+ * megabytes before the first frame. Loading manually also means a failed
+ * texture yields null instead of throwing through the tree.
+ */
+function useLazyTexture(url: string, enabled: boolean, maxAniso: number) {
+  const [map, setMap] = useState<THREE.Texture | null>(null)
+
+  useEffect(() => {
+    if (!enabled || map) return
+    let cancelled = false
+    const loader = new THREE.TextureLoader()
+    loader.load(
+      url,
+      (t) => {
+        if (cancelled) {
+          t.dispose()
+          return
+        }
+        t.colorSpace = THREE.SRGBColorSpace
+        t.generateMipmaps = true
+        t.minFilter = THREE.LinearMipmapLinearFilter
+        t.magFilter = THREE.LinearFilter
+        // Without this the plates smear badly when viewed at an angle,
+        // which is most of the flight.
+        t.anisotropy = maxAniso
+        setMap(t)
+      },
+      undefined,
+      () => {
+        /* a missing plate simply never appears */
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [url, enabled, map, maxAniso])
+
+  return map
+}
+
 function Plate({
   slug,
   x,
@@ -150,18 +193,14 @@ function Plate({
   feather = 0.1,
   saturation = 1.5,
   react = 1,
+  active,
   input,
   reduced,
-}: PlateProps) {
-  const map = useLoader(THREE.TextureLoader, assetUrl(`nebulae/${slug}.webp`))
+}: PlateProps & { active: boolean }) {
   const mesh = useRef<THREE.Mesh>(null)
-  const { size } = useThree()
-
-  useMemo(() => {
-    map.colorSpace = THREE.SRGBColorSpace
-    map.minFilter = THREE.LinearMipmapLinearFilter
-    map.generateMipmaps = true
-  }, [map])
+  const { size, gl } = useThree()
+  const maxAniso = useMemo(() => gl.capabilities.getMaxAnisotropy(), [gl])
+  const map = useLazyTexture(assetUrl(`nebulae/hd/${slug}.webp`), active, maxAniso)
 
   const uniforms = useMemo(
     () => ({
@@ -179,6 +218,7 @@ function Plate({
   )
 
   const smoothed = useRef({ x: 0, y: 0, a: 0 })
+  const fade = useRef(0)
 
   useFrame((state, delta) => {
     if (!mesh.current) return
@@ -195,8 +235,14 @@ function Plate({
     uniforms.uAspect.value = size.width / Math.max(1, size.height)
     uniforms.uReact.value = smoothed.current.a * react
 
+    // Fade in once decoded, so a late-arriving plate does not pop.
+    fade.current += ((map ? 1 : 0) - fade.current) * (1 - Math.pow(0.02, delta))
+    uniforms.uAlpha.value = alpha * fade.current
+
     mesh.current.rotation.z = reduced ? 0 : t * spin
   })
+
+  if (!map) return null
 
   return (
     <mesh ref={mesh} position={[x, y, z]} scale={[scale, scale, 1]}>
@@ -315,17 +361,23 @@ const TRAVEL = 620
  * Plates are spread down the corridor so each becomes the subject at a
  * different point in the page, with lateral offsets so the flight is not a
  * straight tunnel. Scroll maps to camera Z; the page never runs out of sky.
+ *
+ * Horsehead opens: it sits on dark sky with real structure, so the page
+ * begins with an object in space. Orion's core is almost pure white and
+ * blew out the first screen, so it now arrives deeper in, dimmer, as a
+ * payoff rather than a greeting. Veil was dropped — its only NASA master
+ * is 960px and could never look sharp at this size.
  */
 const PLATES: Array<Omit<PlateProps, 'input' | 'reduced'>> = [
-  { slug: 'orion',     x:   0, y:   0, z:  -30, scale: 74, spin:  0.007, brightness: 2.6, alpha: 1.0, gamma: 0.95, saturation: 1.6, feather: 0.05, react: 1.0 },
-  { slug: 'carina',    x: -46, y:  20, z: -108, scale: 76, spin: -0.005, brightness: 2.0, alpha: 0.8, gamma: 1.2,  react: 0.9 },
-  { slug: 'eagle',     x:  44, y: -18, z: -186, scale: 74, spin:  0.006, brightness: 2.0, alpha: 0.8, gamma: 1.15, react: 0.9 },
-  { slug: 'horsehead', x: -34, y: -26, z: -258, scale: 62, spin: -0.008, brightness: 1.9, alpha: 0.78, gamma: 1.25, react: 1.0 },
-  { slug: 'lagoon',    x:  40, y:  26, z: -330, scale: 78, spin:  0.004, brightness: 1.9, alpha: 0.75, gamma: 1.3,  react: 0.9 },
-  { slug: 'andromeda', x: -20, y:   8, z: -410, scale: 88, spin:  0.003, brightness: 2.1, alpha: 0.85, gamma: 1.05, react: 1.0 },
-  { slug: 'helix',     x:  38, y: -22, z: -486, scale: 46, spin: -0.011, brightness: 2.2, alpha: 0.85, gamma: 1.1,  react: 1.2 },
-  { slug: 'crab',      x: -30, y:  22, z: -556, scale: 56, spin:  0.009, brightness: 2.1, alpha: 0.82, gamma: 1.1,  react: 1.1 },
-  { slug: 'veil',      x:  16, y:  -8, z: -624, scale: 82, spin: -0.004, brightness: 2.0, alpha: 0.7,  gamma: 1.3,  react: 0.9 },
+  { slug: 'horsehead', x:  -4, y:   1, z:  -40, scale: 72, spin:  0.006, brightness: 2.0, alpha: 1.0, gamma: 1.0, saturation: 1.5, feather: 0.07, react: 1.0 },
+  { slug: 'carina',    x: -44, y:  16, z: -122, scale: 78, spin: -0.005, brightness: 1.7,  alpha: 0.8,  gamma: 1.2,  react: 0.9 },
+  { slug: 'lagoon',    x:  42, y: -16, z: -198, scale: 76, spin:  0.004, brightness: 1.75, alpha: 0.78, gamma: 1.25, react: 0.9 },
+  { slug: 'eagle',     x: -30, y: -22, z: -272, scale: 70, spin:  0.006, brightness: 1.8,  alpha: 0.76, gamma: 1.2,  react: 0.95 },
+  { slug: 'andromeda', x:  24, y:  20, z: -348, scale: 86, spin:  0.003, brightness: 1.9,  alpha: 0.84, gamma: 1.05, react: 1.0 },
+  { slug: 'helix',     x: -34, y: -14, z: -420, scale: 44, spin: -0.010, brightness: 2.0,  alpha: 0.85, gamma: 1.12, react: 1.2 },
+  { slug: 'orion',     x:  20, y:  10, z: -494, scale: 72, spin:  0.005, brightness: 1.7,  alpha: 0.78, gamma: 1.4,  saturation: 1.55, react: 1.0 },
+  { slug: 'crab',      x: -26, y:  20, z: -566, scale: 52, spin:  0.008, brightness: 1.8,  alpha: 0.78, gamma: 1.3,  react: 1.1 },
+  { slug: 'flame',     x:  22, y: -10, z: -636, scale: 68, spin: -0.004, brightness: 1.5,  alpha: 0.7,  gamma: 1.55, react: 0.9 },
 ]
 
 function Flight({ input, reduced }: { input: RefObject<Input>; reduced: boolean }) {
@@ -354,20 +406,38 @@ function Scene({ input, reduced }: { input: RefObject<Input>; reduced: boolean }
   const narrow = useThree((s) => s.size.width) < 768
   const k = narrow ? 0.6 : 1
 
+  // Coarse scroll progress, only for deciding which plates to fetch. Polled
+  // rather than driven from useFrame so it changes state a few times per
+  // page rather than sixty times per second.
+  const [progress, setProgress] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => {
+      const p = input.current?.progress ?? 0
+      setProgress((prev) => (Math.abs(p - prev) > 0.02 ? p : prev))
+    }, 250)
+    return () => clearInterval(id)
+  }, [input])
+
   return (
     <>
       <StarCorridor count={narrow ? 1100 : 2200} depth={TRAVEL} reduced={reduced} />
-      {PLATES.map((p) => (
-        <Plate
-          key={p.slug}
-          {...p}
-          x={p.x * k}
-          y={p.y * k}
-          scale={p.scale * k}
-          input={input}
-          reduced={reduced}
-        />
-      ))}
+      {PLATES.map((p) => {
+        // Where in the scroll this plate sits, with a lead so it is decoded
+        // before it comes into view.
+        const at = (24 - p.z) / TRAVEL
+        return (
+          <Plate
+            key={p.slug}
+            {...p}
+            x={p.x * k}
+            y={p.y * k}
+            scale={p.scale * k}
+            active={progress > at - 0.3}
+            input={input}
+            reduced={reduced}
+          />
+        )
+      })}
       <Flight input={input} reduced={reduced} />
     </>
   )
@@ -396,9 +466,7 @@ export function NebulaJourney({ className = '' }: { className?: string }) {
         }}
         style={{ background: 'transparent' }}
       >
-        <Suspense fallback={null}>
-          <Scene input={input} reduced={reduced} />
-        </Suspense>
+        <Scene input={input} reduced={reduced} />
         <EffectComposer>
           <Bloom intensity={0.9} luminanceThreshold={0.42} luminanceSmoothing={0.35} mipmapBlur radius={0.72} />
         </EffectComposer>
