@@ -1,5 +1,6 @@
 import { Hero } from '../components/Hero'
-import { NebulaJourney } from '../components/NebulaField'
+import { DeferredJourney } from '../components/DeferredJourney'
+
 import { QuietBoundary } from '../components/QuietBoundary'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
@@ -32,7 +33,7 @@ export function Home() {
   return (
     <div>
       <QuietBoundary>
-        <NebulaJourney />
+        <DeferredJourney />
       </QuietBoundary>
       <Hero />
 

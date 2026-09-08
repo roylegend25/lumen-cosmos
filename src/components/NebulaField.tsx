@@ -1,8 +1,8 @@
-import { useRef, useMemo, useEffect, useState, type RefObject } from 'react'
+import { useRef, useMemo, useEffect, useState, memo, type RefObject } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { assetUrl, bvToRGB } from '../lib/astro'
+import { STAR_SPRITE_FRAG, STAR_SPRITE_VERT, starSpriteUniforms } from '../lib/starShader'
 
 /* ------------------------------------------------------------------ *
  * Input plumbing. Scroll progress and pointer both live in refs so the
@@ -84,6 +84,7 @@ const NEBULA_FRAG = /* glsl */ `
   uniform float uGamma;
   uniform float uFeather;
   uniform float uSaturation;
+  uniform float uGlow;
   uniform vec2  uPointer;
   uniform float uAspect;
   uniform float uReact;
@@ -102,18 +103,33 @@ const NEBULA_FRAG = /* glsl */ `
 
     vec4 t = texture2D(uMap, uv);
 
+    // Sampling a deliberately coarse mip gives a blurred copy for free —
+    // the chain is already built. Adding it back is a bloom in one fetch,
+    // where an EffectComposer pass measured 83ms per frame.
+    vec3 glow = texture2D(uMap, uv, 4.5).rgb;
+
     // These plates sit on black sky, so luminance doubles as an alpha mask:
     // the cloud survives and the background drops out instead of showing a
     // rectangle. Gamma controls how hard the faint outskirts fade.
     float lum = dot(t.rgb, vec3(0.299, 0.587, 0.114));
-    float mask = pow(clamp(lum, 0.0, 1.0), uGamma);
+
+    // The mask must account for the blurred copy as well as the sharp one.
+    // Keying alpha off the sharp image alone meant a dark pixel beside a
+    // bright region was masked to zero, so the glow was multiplied away and
+    // no halo ever appeared — the one thing bloom actually does.
+    float glum = dot(glow, vec3(0.299, 0.587, 0.114));
+    float mask = pow(clamp(max(lum, glum * uGlow), 0.0, 1.0), uGamma);
 
     // Feather the plate edges so nothing reads as a photograph border.
     float edge = smoothstep(0.5, uFeather, length(uv - 0.5));
 
     // Additive blending and ACES both pull toward grey; push the plate's own
     // colour back out before it reaches the composer.
-    vec3 col = mix(vec3(lum), t.rgb, uSaturation);
+    // Soft-knee the halo so bright cores spread instead of clipping to a
+    // flat white disc.
+    vec3 haze = glow * uGlow;
+    haze = haze / (1.0 + haze * 0.85);
+    vec3 col = mix(vec3(lum), t.rgb, uSaturation) + haze;
 
     float a = mask * edge * uAlpha * (1.0 + infl * 0.9);
     gl_FragColor = vec4(col * uBrightness * (1.0 + infl * 1.6), a);
@@ -132,17 +148,33 @@ interface PlateProps {
   gamma?: number
   feather?: number
   saturation?: number
+  glow?: number
   react?: number
   input: RefObject<Input>
   reduced: boolean
 }
 
 /**
- * Loads a plate only once the flight is near it, outside Suspense.
+ * Serialises plate loading across the whole scene.
  *
- * These are 2000-2400px masters; fetching all nine up front would cost
- * megabytes before the first frame. Loading manually also means a failed
- * texture yields null instead of throwing through the tree.
+ * Profiling the scroll showed the cost was not download or React work — it
+ * was texSubImage2D, the synchronous upload of each plate to the GPU. Two
+ * plates arriving together meant two multi-megabyte uploads in one frame and
+ * a visible stall, so uploads are queued one at a time with a frame between
+ * them for the compositor to breathe.
+ */
+let uploadChain: Promise<void> = Promise.resolve()
+
+function nextFrame() {
+  return new Promise<void>((r) => requestAnimationFrame(() => r()))
+}
+
+/**
+ * Loads a plate once the flight is near it, decoding off the main thread.
+ *
+ * createImageBitmap does the decode on a worker thread; TextureLoader's
+ * HTMLImageElement path decodes on the main thread and blocks. A failed
+ * texture yields null rather than throwing through the tree.
  */
 function useLazyTexture(url: string, enabled: boolean, maxAniso: number) {
   const [map, setMap] = useState<THREE.Texture | null>(null)
@@ -150,28 +182,38 @@ function useLazyTexture(url: string, enabled: boolean, maxAniso: number) {
   useEffect(() => {
     if (!enabled || map) return
     let cancelled = false
-    const loader = new THREE.TextureLoader()
-    loader.load(
-      url,
-      (t) => {
+
+    uploadChain = uploadChain.then(async () => {
+      if (cancelled) return
+      try {
+        const res = await fetch(url)
+        if (!res.ok || cancelled) return
+        const blob = await res.blob()
+        const bitmap = await createImageBitmap(blob)
         if (cancelled) {
-          t.dispose()
+          bitmap.close()
           return
         }
+
+        const t = new THREE.Texture(bitmap as unknown as HTMLImageElement)
         t.colorSpace = THREE.SRGBColorSpace
         t.generateMipmaps = true
         t.minFilter = THREE.LinearMipmapLinearFilter
         t.magFilter = THREE.LinearFilter
-        // Without this the plates smear badly when viewed at an angle,
-        // which is most of the flight.
+        // Plates are viewed at an angle for most of the flight; without
+        // anisotropy they smear.
         t.anisotropy = maxAniso
+        t.needsUpdate = true
         setMap(t)
-      },
-      undefined,
-      () => {
-        /* a missing plate simply never appears */
-      },
-    )
+
+        // Let the upload and mipmap build land before starting the next.
+        await nextFrame()
+        await nextFrame()
+      } catch {
+        /* a missing or undecodable plate simply never appears */
+      }
+    })
+
     return () => {
       cancelled = true
     }
@@ -180,7 +222,7 @@ function useLazyTexture(url: string, enabled: boolean, maxAniso: number) {
   return map
 }
 
-function Plate({
+const Plate = memo(function Plate({
   slug,
   x,
   y,
@@ -192,6 +234,7 @@ function Plate({
   gamma = 1.2,
   feather = 0.1,
   saturation = 1.5,
+  glow = 0.9,
   react = 1,
   active,
   input,
@@ -210,11 +253,12 @@ function Plate({
       uGamma: { value: gamma },
       uFeather: { value: feather },
       uSaturation: { value: saturation },
+      uGlow: { value: glow },
       uPointer: { value: new THREE.Vector2(0, 0) },
       uAspect: { value: 1 },
       uReact: { value: 0 },
     }),
-    [map, brightness, alpha, gamma, feather, saturation],
+    [map, brightness, alpha, gamma, feather, saturation, glow],
   )
 
   const smoothed = useRef({ x: 0, y: 0, a: 0 })
@@ -239,6 +283,11 @@ function Plate({
     fade.current += ((map ? 1 : 0) - fade.current) * (1 - Math.pow(0.02, delta))
     uniforms.uAlpha.value = alpha * fade.current
 
+    // Cull anything well behind or far ahead of the camera. These planes are
+    // full-screen and additive, so drawing an off-screen one is pure cost.
+    const dz = state.camera.position.z - z
+    mesh.current.visible = dz > -40 && dz < 260
+
     mesh.current.rotation.z = reduced ? 0 : t * spin
   })
 
@@ -258,39 +307,12 @@ function Plate({
       />
     </mesh>
   )
-}
+})
 
 /* ------------------------------------------------------------------ *
  * Star corridor — fills the space between plates so the flight reads.
  * ------------------------------------------------------------------ */
 
-const STAR_VERT = /* glsl */ `
-  uniform float uTime;
-  uniform float uPixelRatio;
-  attribute float aScale;
-  attribute float aPhase;
-  attribute vec3 aColor;
-  varying vec3 vColor;
-  varying float vTw;
-  void main() {
-    vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    gl_Position = projectionMatrix * mv;
-    vTw = 0.6 + 0.4 * sin(uTime * 0.9 + aPhase * 6.2831853);
-    vColor = aColor;
-    gl_PointSize = aScale * uPixelRatio * (320.0 / max(-mv.z, 0.001));
-  }
-`
-
-const STAR_FRAG = /* glsl */ `
-  varying vec3 vColor;
-  varying float vTw;
-  void main() {
-    float d = length(gl_PointCoord - 0.5);
-    if (d > 0.5) discard;
-    float g = pow(smoothstep(0.5, 0.0, d), 4.0);
-    gl_FragColor = vec4(vColor * g, g * vTw);
-  }
-`
 
 function StarCorridor({ count, depth, reduced }: { count: number; depth: number; reduced: boolean }) {
   const mat = useRef<THREE.ShaderMaterial>(null)
@@ -317,12 +339,7 @@ function StarCorridor({ count, depth, reduced }: { count: number; depth: number;
   }, [count, depth])
 
   const uniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uPixelRatio: {
-        value: Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 2),
-      },
-    }),
+    () => starSpriteUniforms({ scale: 1.15, spikes: 0.6, halo: 0.4, twinkle: 0.3 }),
     [],
   )
 
@@ -340,8 +357,8 @@ function StarCorridor({ count, depth, reduced }: { count: number; depth: number;
       </bufferGeometry>
       <shaderMaterial
         ref={mat}
-        vertexShader={STAR_VERT}
-        fragmentShader={STAR_FRAG}
+        vertexShader={STAR_SPRITE_VERT}
+        fragmentShader={STAR_SPRITE_FRAG}
         uniforms={uniforms}
         transparent
         depthWrite={false}
@@ -369,15 +386,15 @@ const TRAVEL = 620
  * is 960px and could never look sharp at this size.
  */
 const PLATES: Array<Omit<PlateProps, 'input' | 'reduced'>> = [
-  { slug: 'horsehead', x:  -4, y:   1, z:  -40, scale: 72, spin:  0.006, brightness: 2.0, alpha: 1.0, gamma: 1.0, saturation: 1.5, feather: 0.07, react: 1.0 },
-  { slug: 'carina',    x: -44, y:  16, z: -122, scale: 78, spin: -0.005, brightness: 1.7,  alpha: 0.8,  gamma: 1.2,  react: 0.9 },
-  { slug: 'lagoon',    x:  42, y: -16, z: -198, scale: 76, spin:  0.004, brightness: 1.75, alpha: 0.78, gamma: 1.25, react: 0.9 },
-  { slug: 'eagle',     x: -30, y: -22, z: -272, scale: 70, spin:  0.006, brightness: 1.8,  alpha: 0.76, gamma: 1.2,  react: 0.95 },
-  { slug: 'andromeda', x:  24, y:  20, z: -348, scale: 86, spin:  0.003, brightness: 1.9,  alpha: 0.84, gamma: 1.05, react: 1.0 },
-  { slug: 'helix',     x: -34, y: -14, z: -420, scale: 44, spin: -0.010, brightness: 2.0,  alpha: 0.85, gamma: 1.12, react: 1.2 },
-  { slug: 'orion',     x:  20, y:  10, z: -494, scale: 72, spin:  0.005, brightness: 1.7,  alpha: 0.78, gamma: 1.4,  saturation: 1.55, react: 1.0 },
-  { slug: 'crab',      x: -26, y:  20, z: -566, scale: 52, spin:  0.008, brightness: 1.8,  alpha: 0.78, gamma: 1.3,  react: 1.1 },
-  { slug: 'flame',     x:  22, y: -10, z: -636, scale: 68, spin: -0.004, brightness: 1.5,  alpha: 0.7,  gamma: 1.55, react: 0.9 },
+  { slug: 'horsehead', x:  -4, y:   1, z:  -40, scale: 72, spin:  0.006, brightness: 4.6, alpha: 1.0, gamma: 0.9, saturation: 1.5, feather: 0.07, react: 1.0 },
+  { slug: 'carina',    x: -44, y:  16, z: -122, scale: 78, spin: -0.005, brightness: 4.0, alpha: 0.9, gamma: 1.05,  react: 0.9 },
+  { slug: 'lagoon',    x:  42, y: -16, z: -198, scale: 76, spin:  0.004, brightness: 4.0, alpha: 0.88, gamma: 1.1, react: 0.9 },
+  { slug: 'eagle',     x: -30, y: -22, z: -272, scale: 70, spin:  0.006, brightness: 4.1, alpha: 0.86, gamma: 1.05,  react: 0.95 },
+  { slug: 'andromeda', x:  24, y:  20, z: -348, scale: 86, spin:  0.003, brightness: 3.6, alpha: 0.9, gamma: 0.95, react: 1.0 },
+  { slug: 'helix',     x: -34, y: -14, z: -420, scale: 44, spin: -0.010, brightness: 3.6, alpha: 0.9, gamma: 1.0, react: 1.2 },
+  { slug: 'orion',     x:  20, y:  10, z: -494, scale: 72, spin:  0.005, brightness: 3.8, alpha: 0.86, gamma: 1.25,  saturation: 1.55, react: 1.0 },
+  { slug: 'crab',      x: -26, y:  20, z: -566, scale: 52, spin:  0.008, brightness: 3.5, alpha: 0.84, gamma: 1.15,  react: 1.1 },
+  { slug: 'flame',     x:  22, y: -10, z: -636, scale: 68, spin: -0.004, brightness: 2.9, alpha: 0.78, gamma: 1.4, react: 0.9 },
 ]
 
 function Flight({ input, reduced }: { input: RefObject<Input>; reduced: boolean }) {
@@ -420,7 +437,7 @@ function Scene({ input, reduced }: { input: RefObject<Input>; reduced: boolean }
 
   return (
     <>
-      <StarCorridor count={narrow ? 1100 : 2200} depth={TRAVEL} reduced={reduced} />
+      <StarCorridor count={narrow ? 700 : 1700} depth={TRAVEL} reduced={reduced} />
       {PLATES.map((p) => {
         // Where in the scroll this plate sits, with a lead so it is decoded
         // before it comes into view.
@@ -456,7 +473,7 @@ export function NebulaJourney({ className = '' }: { className?: string }) {
     <div className={`fixed inset-0 z-0 pointer-events-none ${className}`} aria-hidden="true">
       <Canvas
         camera={{ position: [0, 0, 24], fov: 62, near: 0.1, far: 1200 }}
-        dpr={[1, 1.75]}
+        dpr={[1, 1.4]}
         gl={{
           antialias: false,
           alpha: true,
@@ -467,9 +484,6 @@ export function NebulaJourney({ className = '' }: { className?: string }) {
         style={{ background: 'transparent' }}
       >
         <Scene input={input} reduced={reduced} />
-        <EffectComposer>
-          <Bloom intensity={0.9} luminanceThreshold={0.42} luminanceSmoothing={0.35} mipmapBlur radius={0.72} />
-        </EffectComposer>
       </Canvas>
 
       {/* Page-level edge falloff. Fixed alongside the canvas so it never
@@ -478,7 +492,7 @@ export function NebulaJourney({ className = '' }: { className?: string }) {
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse 95% 85% at 50% 45%, transparent 0%, rgba(5,5,8,0.05) 62%, rgba(5,5,8,0.5) 100%)',
+            'radial-gradient(ellipse 100% 90% at 50% 45%, transparent 0%, rgba(5,5,8,0.03) 68%, rgba(5,5,8,0.42) 100%)',
         }}
       />
     </div>
