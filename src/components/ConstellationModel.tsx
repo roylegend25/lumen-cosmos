@@ -1,5 +1,5 @@
-import { useRef, useMemo, useState } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { useMemo, useState } from 'react'
+import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Html } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
@@ -42,8 +42,6 @@ function StarPoints({
   maxLy: number
   onHover: (i: number | null) => void
 }) {
-  const group = useRef<THREE.Group>(null)
-
   const items = useMemo(
     () =>
       stars.map((s) => {
@@ -57,14 +55,8 @@ function StarPoints({
     [stars, mode, maxLy],
   )
 
-  useFrame((state, delta) => {
-    if (!group.current) return
-    group.current.rotation.y += delta * 0.045
-    void state
-  })
-
   return (
-    <group ref={group}>
+    <group>
       {items.map((it, i) => (
         <mesh
           key={i}
@@ -92,8 +84,6 @@ function FigureLines({
   mode: ViewMode
   maxLy: number
 }) {
-  const group = useRef<THREE.Group>(null)
-
   const positions = useMemo(() => {
     const pts: number[] = []
 
@@ -123,14 +113,10 @@ function FigureLines({
     return new Float32Array(pts)
   }, [constellation, mode, maxLy])
 
-  useFrame((_, delta) => {
-    if (group.current) group.current.rotation.y += delta * 0.045
-  })
-
   if (!positions.length) return null
 
   return (
-    <group ref={group}>
+    <group>
       <lineSegments frustumCulled={false}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[positions, 3]} />
@@ -149,10 +135,14 @@ function FigureLines({
 export function ConstellationModel({
   constellation,
   mode,
+  spin = true,
+  onInteract,
   className = '',
 }: {
   constellation: Constellation
   mode: ViewMode
+  spin?: boolean
+  onInteract?: () => void
   className?: string
 }) {
   const [hover, setHover] = useState<number | null>(null)
@@ -170,39 +160,76 @@ export function ConstellationModel({
 
   const hovered = hover !== null ? stars[hover] : null
 
+  /**
+   * Every figure sits wherever its right ascension puts it, so without this a
+   * constellation lands off in a corner and cannot be inspected. Rotating its
+   * centroid onto the camera axis centres any of the 88 the same way.
+   */
+  const { quaternion, distance } = useMemo(() => {
+    const centroid = new THREE.Vector3()
+    for (const s of stars) centroid.add(radecToVec3(s.ra, s.dec, 1))
+    if (centroid.lengthSq() < 1e-9) centroid.set(0, 0, 1)
+    centroid.normalize()
+
+    const q = new THREE.Quaternion().setFromUnitVectors(centroid, new THREE.Vector3(0, 0, 1))
+
+    // Frame to the figure's own angular size so small and sprawling
+    // constellations both fill the viewport sensibly.
+    let maxAngle = 0
+    for (const s of stars) {
+      const d = radecToVec3(s.ra, s.dec, 1)
+      maxAngle = Math.max(maxAngle, centroid.angleTo(d))
+    }
+    const spread = Math.max(0.12, Math.min(maxAngle, 0.85))
+    const extent = Math.sin(spread) * SHELL
+    const fov = (48 * Math.PI) / 180
+    const dist = SHELL + Math.max(26, (extent * 1.9) / Math.tan(fov / 2) - SHELL)
+
+    return { quaternion: q, distance: Math.min(240, Math.max(58, dist)) }
+  }, [stars])
+
   return (
     <div className={`relative ${className}`}>
       <Canvas
-        camera={{ position: [0, 8, 78], fov: 48, near: 0.1, far: 600 }}
+        camera={{ position: [0, 0, distance], fov: 48, near: 0.1, far: 900 }}
         dpr={[1, 1.75]}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
         style={{ background: 'transparent' }}
       >
-        <StarPoints stars={stars} mode={mode} maxLy={maxLy} onHover={setHover} />
-        <FigureLines constellation={constellation} mode={mode} maxLy={maxLy} />
+        <group quaternion={quaternion}>
+          <StarPoints stars={stars} mode={mode} maxLy={maxLy} onHover={setHover} />
+          <FigureLines constellation={constellation} mode={mode} maxLy={maxLy} />
 
-        {hovered && (
-          <Html center position={starPosition(hovered, mode, maxLy)} style={{ pointerEvents: 'none' }}>
-            <div className="whitespace-nowrap rounded-lg border border-white/15 bg-[#0a0a12]/95 px-2.5 py-1.5 text-[11px] backdrop-blur-md -translate-y-8">
-              <div className="text-[#f0f0f8] font-medium">
-                {hovered.n ?? greekLetter(hovered.b) ?? `HIP ${hovered.hip}`}
+          {hovered && (
+            <Html center position={starPosition(hovered, mode, maxLy)} style={{ pointerEvents: 'none' }}>
+              <div className="whitespace-nowrap rounded-lg border border-white/15 bg-[#0a0a12]/95 px-2.5 py-1.5 text-[11px] backdrop-blur-md -translate-y-8">
+                <div className="text-[#f0f0f8] font-medium">
+                  {hovered.n ?? greekLetter(hovered.b) ?? `HIP ${hovered.hip}`}
+                </div>
+                <div className="text-[#a0a0b8] font-mono text-[10px] mt-0.5">
+                  mag {hovered.mag}
+                  {hovered.ly ? ` · ${Math.round(hovered.ly).toLocaleString()} ly` : ''}
+                  {hovered.sp ? ` · ${hovered.sp}` : ''}
+                </div>
               </div>
-              <div className="text-[#a0a0b8] font-mono text-[10px] mt-0.5">
-                mag {hovered.mag}
-                {hovered.ly ? ` · ${Math.round(hovered.ly).toLocaleString()} ly` : ''}
-                {hovered.sp ? ` · ${hovered.sp}` : ''}
-              </div>
-            </div>
-          </Html>
-        )}
+            </Html>
+          )}
+        </group>
 
+        {/* autoRotate is owned by the controls so any interaction stops it
+            cleanly; a hand-rolled spin in useFrame fought the user's drag. */}
         <OrbitControls
+          makeDefault
           enablePan={false}
-          minDistance={40}
-          maxDistance={220}
-          autoRotate={false}
+          minDistance={Math.max(20, distance * 0.4)}
+          maxDistance={distance * 2.6}
+          zoomSpeed={0.8}
+          rotateSpeed={0.55}
+          autoRotate={spin}
+          autoRotateSpeed={0.45}
           enableDamping
-          dampingFactor={0.08}
+          dampingFactor={0.09}
+          onStart={onInteract}
         />
         <EffectComposer>
           <Bloom intensity={0.45} luminanceThreshold={0.62} luminanceSmoothing={0.25} mipmapBlur radius={0.45} />

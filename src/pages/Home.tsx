@@ -1,4 +1,5 @@
 import { Hero } from '../components/Hero'
+import { NebulaJourney } from '../components/NebulaField'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { Star, Globe, Layers, Compass } from 'lucide-react'
@@ -29,9 +30,10 @@ const features = [
 export function Home() {
   return (
     <div>
+      <NebulaJourney />
       <Hero />
 
-      <section className="section-padding py-24 md:py-32 relative">
+      <section className="section-padding py-24 md:py-32 relative z-10">
         <div className="container-wide">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -69,7 +71,7 @@ export function Home() {
         </div>
       </section>
 
-      <section className="section-padding py-24 relative border-t border-white/5">
+      <section className="section-padding py-24 relative z-10 border-t border-white/5">
         <div className="container-narrow text-center">
           <h2 className="text-display-sm md:text-display-md font-semibold text-cosmos-pure mb-4">
             From the cosmos to you

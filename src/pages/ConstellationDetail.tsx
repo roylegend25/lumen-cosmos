@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Loader2, Orbit, Layers } from 'lucide-react'
 import { ConstellationModel, type ViewMode } from '../components/ConstellationModel'
+import { assetUrl } from '../lib/astro'
 import {
   designation,
   formatLy,
@@ -16,6 +17,7 @@ export function ConstellationDetail() {
   const [all, setAll] = useState<Constellation[] | null>(null)
   const [nebulae, setNebulae] = useState<Nebula[]>([])
   const [mode, setMode] = useState<ViewMode>('pattern')
+  const [spin, setSpin] = useState(true)
 
   useEffect(() => {
     loadConstellations().then(setAll).catch(() => setAll([]))
@@ -91,8 +93,49 @@ export function ConstellationDetail() {
           </div>
         </div>
 
-        <div className="rounded-2xl overflow-hidden border border-white/[0.07] bg-black mb-3">
-          <ConstellationModel constellation={c} mode={mode} className="h-[52vh] min-h-[360px]" />
+        {related.length > 0 && (
+          <div className="grid lg:grid-cols-[1.15fr_1fr] gap-4 mb-4">
+            <Link
+              to={`/nebulae/${related[0].slug}`}
+              className="group relative rounded-2xl overflow-hidden border border-white/[0.07] bg-black"
+            >
+              <img
+                src={assetUrl(related[0].image)}
+                alt={related[0].name}
+                className="w-full h-full object-cover aspect-[16/10] group-hover:scale-[1.03] transition-transform duration-[900ms]"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#05050a] via-transparent to-transparent" />
+              <div className="absolute left-4 bottom-4 right-4">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[#9b8cff] mb-1">
+                  {related[0].catalog}
+                </p>
+                <h2 className="text-[1.3rem] font-semibold text-[#f0f0f8]">{related[0].name}</h2>
+                <p className="text-[12px] text-[#a0a0b8] mt-0.5">
+                  {related[0].type} · {related[0].distanceLy.toLocaleString()} ly · {related[0].credit}
+                </p>
+              </div>
+            </Link>
+
+            <div className="rounded-2xl overflow-hidden border border-white/[0.07] bg-black">
+              <ConstellationModel
+                constellation={c}
+                mode={mode}
+                spin={spin}
+                onInteract={() => setSpin(false)}
+                className="h-full min-h-[300px]"
+              />
+            </div>
+          </div>
+        )}
+
+        <div className={`rounded-2xl overflow-hidden border border-white/[0.07] bg-black mb-3 ${related.length > 0 ? 'hidden' : ''}`}>
+          <ConstellationModel
+            constellation={c}
+            mode={mode}
+            spin={spin}
+            onInteract={() => setSpin(false)}
+            className="h-[58vh] min-h-[380px]"
+          />
         </div>
         <p className="text-[12px] text-[#6b6b85] mb-10">
           {mode === 'pattern'

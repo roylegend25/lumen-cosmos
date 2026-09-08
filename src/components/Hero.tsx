@@ -1,32 +1,10 @@
-import { Suspense } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Telescope, Sparkles } from 'lucide-react'
-import { NebulaField } from './NebulaField'
 
 export function Hero() {
   return (
-    <section className="relative min-h-[100svh] flex items-center justify-center overflow-hidden">
-      <div className="absolute inset-0 bg-[#050508]" />
-
-      <Suspense
-        fallback={
-          <div className="absolute inset-0 bg-[#050508] flex items-center justify-center">
-            <div className="w-12 h-12 rounded-full border border-[#7c6aff]/30 border-t-[#9b8cff] animate-spin" />
-          </div>
-        }
-      >
-        <NebulaField />
-      </Suspense>
-
-      {/* Edge falloff only — the centre stays clear so the nebula reads. */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(ellipse 85% 75% at 50% 45%, transparent 0%, rgba(5,5,8,0.10) 55%, rgba(5,5,8,0.72) 100%)',
-        }}
-      />
+    <section className="relative z-10 min-h-[100svh] flex items-center justify-center overflow-hidden">
       {/* Scrim sized to the copy block: enough contrast for type without
           flattening the nebula behind it. */}
       <div
@@ -36,8 +14,8 @@ export function Hero() {
             'radial-gradient(ellipse 42% 30% at 50% 42%, rgba(5,5,8,0.58) 0%, rgba(5,5,8,0.34) 50%, transparent 80%)',
         }}
       />
-      <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#050508]/90 to-transparent pointer-events-none" />
-      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#050508] to-transparent pointer-events-none" />
+      
+      
 
       <div className="relative z-10 section-padding container-wide text-center pt-28 pb-20">
         <motion.div

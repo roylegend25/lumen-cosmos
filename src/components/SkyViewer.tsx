@@ -1,32 +1,36 @@
 import { useRef, useMemo, useEffect, useState, useCallback } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Html } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import {
+  COMPASS,
+  altAzToVec3,
   bvToRGB,
+  julianDate,
   loadConstellations,
   loadSky,
+  lstDeg,
   magToBrightness,
-  radecToVec3,
+  raDecToAltAz,
   type Constellation,
+  type Site,
   type SkyData,
 } from '../lib/astro'
 
 const SKY_R = 100
 
 /* ------------------------------------------------------------------ *
- * Look controls. The camera sits at the origin and only ever changes
- * orientation, which is what standing under the sky actually does —
- * orbiting a target would move us off the celestial sphere.
+ * Look controls — the observer stands still and turns their head.
  * ------------------------------------------------------------------ */
 
 interface LookState {
-  theta: number
-  phi: number
+  yaw: number
+  pitch: number
   fov: number
-  targetTheta: number
-  targetPhi: number
-  targetFov: number
+  tYaw: number
+  tPitch: number
+  tFov: number
   dragging: boolean
 }
 
@@ -45,6 +49,7 @@ function LookRig({ look }: { look: React.MutableRefObject<LookState> }) {
       lastX = e.clientX
       lastY = e.clientY
       el.setPointerCapture(e.pointerId)
+      el.style.cursor = 'grabbing'
     }
     const move = (e: PointerEvent) => {
       if (!look.current.dragging) return
@@ -53,34 +58,27 @@ function LookRig({ look }: { look: React.MutableRefObject<LookState> }) {
       lastX = e.clientX
       lastY = e.clientY
       moved += Math.abs(dx) + Math.abs(dy)
-
-      // Scale with FOV so zoomed-in dragging stays proportional on screen.
-      const k = (look.current.fov / 60) * 0.004
-      look.current.targetTheta -= dx * k
-      look.current.targetPhi = THREE.MathUtils.clamp(
-        look.current.targetPhi - dy * k,
-        0.06,
-        Math.PI - 0.06,
-      )
+      const k = (look.current.fov / 60) * 0.0042
+      look.current.tYaw -= dx * k
+      // Allow a little below the horizon, but not a full somersault.
+      look.current.tPitch = THREE.MathUtils.clamp(look.current.tPitch + dy * k, -0.32, 1.45)
     }
     const up = (e: PointerEvent) => {
       look.current.dragging = false
       try {
         el.releasePointerCapture(e.pointerId)
       } catch {
-        /* pointer already released */
+        /* already released */
       }
+      el.style.cursor = 'grab'
       el.dataset.dragged = moved > 6 ? '1' : '0'
     }
     const wheel = (e: WheelEvent) => {
       e.preventDefault()
-      look.current.targetFov = THREE.MathUtils.clamp(
-        look.current.targetFov + e.deltaY * 0.05,
-        14,
-        78,
-      )
+      look.current.tFov = THREE.MathUtils.clamp(look.current.tFov + e.deltaY * 0.05, 12, 80)
     }
 
+    el.style.cursor = 'grab'
     el.addEventListener('pointerdown', down)
     el.addEventListener('pointermove', move)
     el.addEventListener('pointerup', up)
@@ -97,25 +95,26 @@ function LookRig({ look }: { look: React.MutableRefObject<LookState> }) {
 
   useFrame((_, delta) => {
     const L = look.current
-    const damp = 1 - Math.pow(0.0001, delta)
-    L.theta += (L.targetTheta - L.theta) * damp
-    L.phi += (L.targetPhi - L.phi) * damp
-    L.fov += (L.targetFov - L.fov) * damp
+    const d = 1 - Math.pow(0.0001, delta)
+    L.yaw += (L.tYaw - L.yaw) * d
+    L.pitch += (L.tPitch - L.pitch) * d
+    L.fov += (L.tFov - L.fov) * d
 
     const cam = camera as THREE.PerspectiveCamera
     if (Math.abs(cam.fov - L.fov) > 0.01) {
       cam.fov = L.fov
       cam.updateProjectionMatrix()
     }
-    const dir = new THREE.Vector3().setFromSphericalCoords(1, L.phi, L.theta)
-    cam.lookAt(dir)
+    // yaw 0 looks due north (−Z); pitch raises the gaze toward the zenith.
+    const cp = Math.cos(L.pitch)
+    cam.lookAt(cp * Math.sin(L.yaw), Math.sin(L.pitch), -cp * Math.cos(L.yaw))
   })
 
   return null
 }
 
 /* ------------------------------------------------------------------ *
- * Stars — one draw call for the whole naked-eye sky.
+ * Stars
  * ------------------------------------------------------------------ */
 
 const SKY_VERT = /* glsl */ `
@@ -127,11 +126,14 @@ const SKY_VERT = /* glsl */ `
   attribute vec3 aColor;
   varying vec3 vColor;
   varying float vTw;
+  varying float vBelow;
   void main() {
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mv;
-    // Atmospheric shimmer, strongest on the faintest stars.
-    vTw = 0.78 + 0.22 * sin(uTime * 1.6 + aPhase * 6.2831853);
+    // Scintillation is strongest near the horizon, as it is in reality.
+    float horizonness = 1.0 - clamp(position.y / 40.0, 0.0, 1.0);
+    vTw = 0.80 + 0.20 * sin(uTime * (1.2 + horizonness * 1.8) + aPhase * 6.2831853);
+    vBelow = position.y < 0.0 ? 1.0 : 0.0;
     vColor = aColor;
     gl_PointSize = aSize * uPixelRatio * uFovScale;
   }
@@ -140,17 +142,30 @@ const SKY_VERT = /* glsl */ `
 const SKY_FRAG = /* glsl */ `
   varying vec3 vColor;
   varying float vTw;
+  varying float vBelow;
   void main() {
     vec2 p = gl_PointCoord - 0.5;
     float d = length(p);
     if (d > 0.5) discard;
-    float core = smoothstep(0.5, 0.0, d);
-    float g = pow(core, 3.0);
-    gl_FragColor = vec4(vColor * (0.35 + g), g * vTw);
+    float g = pow(smoothstep(0.5, 0.0, d), 3.0);
+    // Stars under the horizon are kept but heavily suppressed, so the sky
+    // reads as a real hemisphere rather than a sphere floating in space.
+    float below = mix(1.0, 0.06, vBelow);
+    gl_FragColor = vec4(vColor * (0.35 + g), g * vTw * below);
   }
 `
 
-function Stars({ sky, reduced }: { sky: SkyData; reduced: boolean }) {
+function Stars({
+  sky,
+  site,
+  lst,
+  reduced,
+}: {
+  sky: SkyData
+  site: Site
+  lst: number
+  reduced: boolean
+}) {
   const mat = useRef<THREE.ShaderMaterial>(null)
   const { camera } = useThree()
 
@@ -163,7 +178,8 @@ function Stars({ sky, reduced }: { sky: SkyData; reduced: boolean }) {
 
     for (let i = 0; i < n; i++) {
       const [ra, dec, mag, ci] = sky.stars[i]
-      const v = radecToVec3(ra, dec, SKY_R)
+      const { alt, az } = raDecToAltAz(ra, dec, site.lat, lst)
+      const v = altAzToVec3(alt, az, SKY_R)
       positions[i * 3] = v.x
       positions[i * 3 + 1] = v.y
       positions[i * 3 + 2] = v.z
@@ -173,12 +189,11 @@ function Stars({ sky, reduced }: { sky: SkyData; reduced: boolean }) {
       colors[i * 3 + 1] = g
       colors[i * 3 + 2] = b
 
-      const bright = magToBrightness(mag, sky.magLimit)
-      sizes[i] = 1.6 + bright * 9.5
-      phases[i] = Math.random()
+      sizes[i] = 1.6 + magToBrightness(mag, sky.magLimit) * 10
+      phases[i] = (i * 0.6180339887) % 1
     }
     return { positions, colors, sizes, phases }
-  }, [sky])
+  }, [sky, site, lst])
 
   const uniforms = useMemo(
     () => ({
@@ -194,14 +209,13 @@ function Stars({ sky, reduced }: { sky: SkyData; reduced: boolean }) {
   useFrame((state) => {
     if (!mat.current) return
     if (!reduced) mat.current.uniforms.uTime.value = state.clock.elapsedTime
-    // Zooming in must enlarge stars, or the sky looks emptier the closer you look.
     const cam = camera as THREE.PerspectiveCamera
     mat.current.uniforms.uFovScale.value = 60 / cam.fov
   })
 
   return (
     <points frustumCulled={false}>
-      <bufferGeometry>
+      <bufferGeometry key={`${site.lat},${site.lon},${Math.round(lst)}`}>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
         <bufferAttribute attach="attributes-aColor" args={[colors, 3]} />
         <bufferAttribute attach="attributes-aSize" args={[sizes, 1]} />
@@ -221,61 +235,60 @@ function Stars({ sky, reduced }: { sky: SkyData; reduced: boolean }) {
 }
 
 /* ------------------------------------------------------------------ *
- * Constellation figures
+ * Constellation figures, in the observer's frame
  * ------------------------------------------------------------------ */
+
+function toLocal(ra: number, dec: number, site: Site, lst: number, r: number) {
+  const { alt, az } = raDecToAltAz(ra, dec, site.lat, lst)
+  return altAzToVec3(alt, az, r)
+}
 
 function ConstellationLines({
   constellations,
   activeId,
+  site,
+  lst,
 }: {
   constellations: Constellation[]
   activeId: string | null
+  site: Site
+  lst: number
 }) {
-  const base = useMemo(() => {
-    const pts: number[] = []
+  const { base, active } = useMemo(() => {
+    const b: number[] = []
+    const a: number[] = []
     for (const c of constellations) {
-      if (c.id === activeId) continue
+      const target = c.id === activeId ? a : b
+      const r = c.id === activeId ? SKY_R * 0.975 : SKY_R * 0.985
       for (const seg of c.segments) {
         for (let i = 0; i < seg.length - 1; i++) {
-          const a = radecToVec3(seg[i][0], seg[i][1], SKY_R * 0.985)
-          const b = radecToVec3(seg[i + 1][0], seg[i + 1][1], SKY_R * 0.985)
-          pts.push(a.x, a.y, a.z, b.x, b.y, b.z)
+          const p = toLocal(seg[i][0], seg[i][1], site, lst, r)
+          const q = toLocal(seg[i + 1][0], seg[i + 1][1], site, lst, r)
+          // Skip figures wholly underfoot; drawing them adds clutter only.
+          if (p.y < -12 && q.y < -12) continue
+          target.push(p.x, p.y, p.z, q.x, q.y, q.z)
         }
       }
     }
-    return new Float32Array(pts)
-  }, [constellations, activeId])
-
-  const active = useMemo(() => {
-    const c = constellations.find((x) => x.id === activeId)
-    if (!c) return new Float32Array(0)
-    const pts: number[] = []
-    for (const seg of c.segments) {
-      for (let i = 0; i < seg.length - 1; i++) {
-        const a = radecToVec3(seg[i][0], seg[i][1], SKY_R * 0.98)
-        const b = radecToVec3(seg[i + 1][0], seg[i + 1][1], SKY_R * 0.98)
-        pts.push(a.x, a.y, a.z, b.x, b.y, b.z)
-      }
-    }
-    return new Float32Array(pts)
-  }, [constellations, activeId])
+    return { base: new Float32Array(b), active: new Float32Array(a) }
+  }, [constellations, activeId, site, lst])
 
   return (
     <>
       {base.length > 0 && (
         <lineSegments frustumCulled={false}>
-          <bufferGeometry>
+          <bufferGeometry key={`b${base.length}-${activeId}`}>
             <bufferAttribute attach="attributes-position" args={[base, 3]} />
           </bufferGeometry>
-          <lineBasicMaterial color="#5b6cff" transparent opacity={0.24} depthWrite={false} />
+          <lineBasicMaterial color="#6478ff" transparent opacity={0.2} depthWrite={false} />
         </lineSegments>
       )}
       {active.length > 0 && (
         <lineSegments frustumCulled={false}>
-          <bufferGeometry>
+          <bufferGeometry key={`a${active.length}-${activeId}`}>
             <bufferAttribute attach="attributes-position" args={[active, 3]} />
           </bufferGeometry>
-          <lineBasicMaterial color="#9b8cff" transparent opacity={0.95} depthWrite={false} />
+          <lineBasicMaterial color="#b9a8ff" transparent opacity={1} depthWrite={false} />
         </lineSegments>
       )}
     </>
@@ -283,47 +296,120 @@ function ConstellationLines({
 }
 
 /* ------------------------------------------------------------------ *
- * Picking — compare the view ray against each figure's centroid.
- * Raycasting thin lines is unreliable; nearest-centroid is predictable.
+ * Ground, horizon ring and compass
  * ------------------------------------------------------------------ */
 
-function useCentroids(constellations: Constellation[]) {
-  return useMemo(() => {
-    return constellations.map((c) => {
-      const v = new THREE.Vector3()
-      let n = 0
-      for (const seg of c.segments) {
-        for (const [ra, dec] of seg) {
-          v.add(radecToVec3(ra, dec, 1))
-          n++
+/**
+ * drei's Html renders in the DOM regardless of whether its anchor is in front
+ * of the camera, so a naive compass shows "S" while you are facing north.
+ * This hides any marker that falls behind the view direction.
+ */
+function CompassLabel({ label, az }: { label: string; az: number }) {
+  const el = useRef<HTMLDivElement>(null)
+  const pos = useMemo(() => altAzToVec3(1.5, az, SKY_R * 0.96), [az])
+  const cardinal = label.length === 1
+
+  const fwd = useRef(new THREE.Vector3())
+  useFrame(({ camera }) => {
+    if (!el.current) return
+    camera.getWorldDirection(fwd.current)
+    const facing = fwd.current.dot(pos.clone().normalize())
+    el.current.style.opacity = facing > 0.12 ? String(Math.min(1, (facing - 0.12) * 4)) : '0'
+  })
+
+  return (
+    <Html center position={pos} style={{ pointerEvents: 'none' }}>
+      <div
+        ref={el}
+        className={`font-mono tracking-widest select-none transition-none ${
+          cardinal ? 'text-[13px] text-[#c9d1ff]' : 'text-[10px] text-[#7783b0]'
+        }`}
+        style={{ textShadow: '0 0 10px rgba(0,0,0,0.95)' }}
+      >
+        {label}
+      </div>
+    </Html>
+  )
+}
+
+function Horizon() {
+  const ring = useMemo(() => {
+    const pts: number[] = []
+    const N = 240
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * 360
+      const b = ((i + 1) / N) * 360
+      const p = altAzToVec3(0, a, SKY_R * 0.99)
+      const q = altAzToVec3(0, b, SKY_R * 0.99)
+      pts.push(p.x, p.y, p.z, q.x, q.y, q.z)
+    }
+    return new Float32Array(pts)
+  }, [])
+
+  return (
+    <>
+      {/* Opaque ground so nothing below the horizon shows through. */}
+      <mesh position={[0, -0.4, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[SKY_R * 1.4, 64]} />
+        <meshBasicMaterial color="#05050a" transparent opacity={0.94} depthWrite={false} />
+      </mesh>
+
+      <lineSegments frustumCulled={false}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[ring, 3]} />
+        </bufferGeometry>
+        <lineBasicMaterial color="#4a5580" transparent opacity={0.55} depthWrite={false} />
+      </lineSegments>
+
+      {COMPASS.map((c) => (
+        <CompassLabel key={c.label} label={c.label} az={c.az} />
+      ))}
+    </>
+  )
+}
+
+/* ------------------------------------------------------------------ *
+ * Picking
+ * ------------------------------------------------------------------ */
+
+function useCentroids(constellations: Constellation[], site: Site, lst: number) {
+  return useMemo(
+    () =>
+      constellations.map((c) => {
+        const v = new THREE.Vector3()
+        let n = 0
+        for (const seg of c.segments) {
+          for (const [ra, dec] of seg) {
+            v.add(toLocal(ra, dec, site, lst, 1))
+            n++
+          }
         }
-      }
-      if (!n && c.stars.length) {
-        for (const s of c.stars) {
-          v.add(radecToVec3(s.ra, s.dec, 1))
-          n++
+        if (!n) {
+          for (const s of c.stars) {
+            v.add(toLocal(s.ra, s.dec, site, lst, 1))
+            n++
+          }
         }
-      }
-      if (n) v.divideScalar(n).normalize()
-      return { id: c.id, dir: v }
-    })
-  }, [constellations])
+        if (n) v.divideScalar(n).normalize()
+        return { id: c.id, dir: v }
+      }),
+    [constellations, site, lst],
+  )
 }
 
 function Picker({
-  constellations,
+  centroids,
   onPick,
 }: {
-  constellations: Constellation[]
+  centroids: { id: string; dir: THREE.Vector3 }[]
   onPick: (id: string | null) => void
 }) {
   const { gl, camera } = useThree()
-  const centroids = useCentroids(constellations)
 
   useEffect(() => {
     const el = gl.domElement
     const click = (e: MouseEvent) => {
-      if (el.dataset.dragged === '1') return // a drag, not a tap
+      if (el.dataset.dragged === '1') return
       const rect = el.getBoundingClientRect()
       const ndc = new THREE.Vector2(
         ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -342,7 +428,6 @@ function Picker({
           best = c.id
         }
       }
-      // ~25 degrees; beyond that the click is empty sky.
       onPick(bestDot > 0.9 ? best : null)
     }
     el.addEventListener('click', click)
@@ -353,12 +438,14 @@ function Picker({
 }
 
 /* ------------------------------------------------------------------ *
- * Public component
+ * Public
  * ------------------------------------------------------------------ */
 
 export interface SkyViewerProps {
   sky: SkyData
   constellations: Constellation[]
+  site: Site
+  date: Date
   activeId: string | null
   onSelect: (id: string | null) => void
   focusId?: string | null
@@ -368,6 +455,8 @@ export interface SkyViewerProps {
 export function SkyViewer({
   sky,
   constellations,
+  site,
+  date,
   activeId,
   onSelect,
   focusId,
@@ -378,56 +467,62 @@ export function SkyViewer({
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches
   }, [])
 
+  const lst = useMemo(() => lstDeg(julianDate(date), site.lon), [date, site.lon])
+
   const look = useRef<LookState>({
-    theta: 1.2,
-    phi: Math.PI / 2,
-    fov: 60,
-    targetTheta: 1.2,
-    targetPhi: Math.PI / 2,
-    targetFov: 60,
+    yaw: 0,
+    pitch: 0.45,
+    fov: 62,
+    tYaw: 0,
+    tPitch: 0.45,
+    tFov: 62,
     dragging: false,
   })
 
-  const centroids = useCentroids(constellations)
+  const centroids = useCentroids(constellations, site, lst)
 
-  // Swing the view to a constellation when one is chosen from the list.
   useEffect(() => {
     if (!focusId) return
     const c = centroids.find((x) => x.id === focusId)
     if (!c) return
-    const sph = new THREE.Spherical().setFromVector3(c.dir)
-    look.current.targetPhi = THREE.MathUtils.clamp(sph.phi, 0.06, Math.PI - 0.06)
+    const d = c.dir
+    const pitch = Math.asin(THREE.MathUtils.clamp(d.y, -1, 1))
+    const yaw = Math.atan2(d.x, -d.z)
 
-    // Take the shorter way round instead of unwinding the long way.
-    let t = sph.theta
-    const cur = look.current.targetTheta
-    while (t - cur > Math.PI) t -= Math.PI * 2
-    while (cur - t > Math.PI) t += Math.PI * 2
-    look.current.targetTheta = t
-    look.current.targetFov = 34
+    look.current.tPitch = THREE.MathUtils.clamp(pitch, -0.3, 1.45)
+    let y = yaw
+    while (y - look.current.tYaw > Math.PI) y -= Math.PI * 2
+    while (look.current.tYaw - y > Math.PI) y += Math.PI * 2
+    look.current.tYaw = y
+    look.current.tFov = 38
   }, [focusId, centroids])
 
   return (
     <div className={`relative ${className}`}>
       <Canvas
-        camera={{ position: [0, 0, 0], fov: 60, near: 0.1, far: 300 }}
+        camera={{ position: [0, 0, 0], fov: 62, near: 0.1, far: 400 }}
         dpr={[1, 2]}
         gl={{ antialias: false, alpha: true, powerPreference: 'high-performance' }}
-        style={{ background: 'transparent', touchAction: 'none', cursor: 'grab' }}
+        style={{ background: 'transparent', touchAction: 'none' }}
       >
-        <Stars sky={sky} reduced={reduced} />
-        <ConstellationLines constellations={constellations} activeId={activeId} />
+        <Stars sky={sky} site={site} lst={lst} reduced={reduced} />
+        <ConstellationLines
+          constellations={constellations}
+          activeId={activeId}
+          site={site}
+          lst={lst}
+        />
+        <Horizon />
         <LookRig look={look} />
-        <Picker constellations={constellations} onPick={onSelect} />
+        <Picker centroids={centroids} onPick={onSelect} />
         <EffectComposer>
-          <Bloom intensity={0.55} luminanceThreshold={0.5} luminanceSmoothing={0.3} mipmapBlur radius={0.55} />
+          <Bloom intensity={0.6} luminanceThreshold={0.5} luminanceSmoothing={0.3} mipmapBlur radius={0.6} />
         </EffectComposer>
       </Canvas>
     </div>
   )
 }
 
-/** Hook that loads both datasets once and reports progress. */
 export function useSkyData() {
   const [sky, setSky] = useState<SkyData | null>(null)
   const [constellations, setConstellations] = useState<Constellation[] | null>(null)

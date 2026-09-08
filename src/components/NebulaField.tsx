@@ -5,20 +5,50 @@ import * as THREE from 'three'
 import { assetUrl, bvToRGB } from '../lib/astro'
 
 /* ------------------------------------------------------------------ *
- * Scroll plumbing. Kept in a ref so scrolling never triggers a React
- * re-render — the render loop samples it directly each frame.
+ * Input plumbing. Scroll progress and pointer both live in refs so the
+ * render loop can sample them without re-rendering React on every event.
  * ------------------------------------------------------------------ */
 
-export function useScrollRef() {
-  const ref = useRef(0)
+interface Input {
+  /** 0 at the top of the document, 1 at the bottom. */
+  progress: number
+  /** Pointer in NDC (-1..1), and how strongly it should register. */
+  px: number
+  py: number
+  active: number
+}
+
+function useJourneyInput() {
+  const ref = useRef<Input>({ progress: 0, px: 0, py: 0, active: 0 })
+
   useEffect(() => {
     const onScroll = () => {
-      ref.current = window.scrollY
+      const doc = document.documentElement
+      const span = doc.scrollHeight - window.innerHeight
+      ref.current.progress = span > 0 ? Math.min(1, Math.max(0, window.scrollY / span)) : 0
     }
+    const onMove = (e: PointerEvent) => {
+      ref.current.px = (e.clientX / window.innerWidth) * 2 - 1
+      ref.current.py = -((e.clientY / window.innerHeight) * 2 - 1)
+      ref.current.active = 1
+    }
+    const onLeave = () => {
+      ref.current.active = 0
+    }
+
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    window.addEventListener('resize', onScroll)
+    window.addEventListener('pointermove', onMove, { passive: true })
+    window.addEventListener('pointerleave', onLeave)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerleave', onLeave)
+    }
   }, [])
+
   return ref
 }
 
@@ -30,14 +60,20 @@ function usePrefersReducedMotion() {
 }
 
 /* ------------------------------------------------------------------ *
- * Nebula layer — a real NASA plate keyed to its own luminance.
+ * Nebula plate. Real NASA imagery keyed to its own luminance, with a
+ * pointer-driven bloom and displacement so the cloud answers the cursor.
  * ------------------------------------------------------------------ */
 
 const NEBULA_VERT = /* glsl */ `
   varying vec2 vUv;
+  varying vec2 vNdc;
   void main() {
     vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    vec4 clip = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    // Normalised device coords let the fragment stage measure distance to the
+    // pointer in screen space, which is what "near the cursor" means to a user.
+    vNdc = clip.xy / clip.w;
+    gl_Position = clip;
   }
 `
 
@@ -48,32 +84,47 @@ const NEBULA_FRAG = /* glsl */ `
   uniform float uGamma;
   uniform float uFeather;
   uniform float uSaturation;
+  uniform vec2  uPointer;
+  uniform float uAspect;
+  uniform float uReact;
   varying vec2 vUv;
+  varying vec2 vNdc;
 
   void main() {
-    vec4 t = texture2D(uMap, vUv);
+    // Gaussian falloff around the cursor. Aspect correction keeps the
+    // influence circular rather than stretched on wide viewports.
+    vec2 delta = (vNdc - uPointer) * vec2(uAspect, 1.0);
+    float infl = exp(-dot(delta, delta) * 2.2) * uReact;
+
+    // Push the cloud gently outward from the cursor, so it visibly parts.
+    vec2 dir = normalize(vUv - 0.5 + 1e-5);
+    vec2 uv = vUv + dir * infl * 0.045;
+
+    vec4 t = texture2D(uMap, uv);
 
     // These plates sit on black sky, so luminance doubles as an alpha mask:
-    // the cloud stays and the background drops out instead of showing a
-    // rectangle. Gamma controls how aggressively the faint outskirts fade.
+    // the cloud survives and the background drops out instead of showing a
+    // rectangle. Gamma controls how hard the faint outskirts fade.
     float lum = dot(t.rgb, vec3(0.299, 0.587, 0.114));
     float mask = pow(clamp(lum, 0.0, 1.0), uGamma);
 
     // Feather the plate edges so nothing reads as a photograph border.
-    float edge = smoothstep(0.5, uFeather, length(vUv - 0.5));
+    float edge = smoothstep(0.5, uFeather, length(uv - 0.5));
 
-    // Additive blending plus ACES tone mapping both pull toward grey, so the
-    // plate's own colour is pushed back out before it reaches the composer.
+    // Additive blending and ACES both pull toward grey; push the plate's own
+    // colour back out before it reaches the composer.
     vec3 col = mix(vec3(lum), t.rgb, uSaturation);
 
-    float a = mask * edge * uAlpha;
-    gl_FragColor = vec4(col * uBrightness, a);
+    float a = mask * edge * uAlpha * (1.0 + infl * 0.9);
+    gl_FragColor = vec4(col * uBrightness * (1.0 + infl * 1.6), a);
   }
 `
 
-interface LayerProps {
+interface PlateProps {
   slug: string
-  position: [number, number, number]
+  x: number
+  y: number
+  z: number
   scale: number
   spin: number
   brightness?: number
@@ -81,29 +132,30 @@ interface LayerProps {
   gamma?: number
   feather?: number
   saturation?: number
-  parallax?: number
-  drift?: number
-  scrollRef: RefObject<number>
+  react?: number
+  input: RefObject<Input>
   reduced: boolean
 }
 
-function NebulaLayer({
+function Plate({
   slug,
-  position,
+  x,
+  y,
+  z,
   scale,
   spin,
-  brightness = 1.0,
-  alpha = 1.0,
-  gamma = 1.3,
-  feather = 0.16,
-  saturation = 1.45,
-  parallax = 0,
-  drift = 0,
-  scrollRef,
+  brightness = 1.8,
+  alpha = 0.9,
+  gamma = 1.2,
+  feather = 0.1,
+  saturation = 1.5,
+  react = 1,
+  input,
   reduced,
-}: LayerProps) {
+}: PlateProps) {
   const map = useLoader(THREE.TextureLoader, assetUrl(`nebulae/${slug}.jpg`))
   const mesh = useRef<THREE.Mesh>(null)
+  const { size } = useThree()
 
   useMemo(() => {
     map.colorSpace = THREE.SRGBColorSpace
@@ -119,26 +171,35 @@ function NebulaLayer({
       uGamma: { value: gamma },
       uFeather: { value: feather },
       uSaturation: { value: saturation },
+      uPointer: { value: new THREE.Vector2(0, 0) },
+      uAspect: { value: 1 },
+      uReact: { value: 0 },
     }),
     [map, brightness, alpha, gamma, feather, saturation],
   )
 
-  useFrame((state) => {
+  const smoothed = useRef({ x: 0, y: 0, a: 0 })
+
+  useFrame((state, delta) => {
     if (!mesh.current) return
     const t = state.clock.elapsedTime
-    const s = scrollRef.current || 0
-    const vh = typeof window !== 'undefined' ? window.innerHeight : 1
-    const p = s / vh // pages scrolled
+    const I = input.current
 
-    // Continuous drift plus a scroll-coupled term: the field keeps turning
-    // on its own, and scrolling adds to that rotation rather than replacing it.
-    mesh.current.rotation.z = (reduced ? 0 : t * spin) + p * drift
+    // Ease the pointer so the cloud glides instead of snapping.
+    const k = 1 - Math.pow(0.002, delta)
+    smoothed.current.x += (I.px - smoothed.current.x) * k
+    smoothed.current.y += (I.py - smoothed.current.y) * k
+    smoothed.current.a += ((reduced ? 0 : I.active) - smoothed.current.a) * k
 
-    mesh.current.position.y = position[1] + p * parallax
+    uniforms.uPointer.value.set(smoothed.current.x, smoothed.current.y)
+    uniforms.uAspect.value = size.width / Math.max(1, size.height)
+    uniforms.uReact.value = smoothed.current.a * react
+
+    mesh.current.rotation.z = reduced ? 0 : t * spin
   })
 
   return (
-    <mesh ref={mesh} position={position} scale={[scale, scale, 1]}>
+    <mesh ref={mesh} position={[x, y, z]} scale={[scale, scale, 1]}>
       <planeGeometry args={[1, 1]} />
       <shaderMaterial
         vertexShader={NEBULA_VERT}
@@ -154,7 +215,7 @@ function NebulaLayer({
 }
 
 /* ------------------------------------------------------------------ *
- * Foreground stars — real B-V colours, drawn from the catalogue tail.
+ * Star corridor — fills the space between plates so the flight reads.
  * ------------------------------------------------------------------ */
 
 const STAR_VERT = /* glsl */ `
@@ -170,7 +231,7 @@ const STAR_VERT = /* glsl */ `
     gl_Position = projectionMatrix * mv;
     vTw = 0.6 + 0.4 * sin(uTime * 0.9 + aPhase * 6.2831853);
     vColor = aColor;
-    gl_PointSize = aScale * uPixelRatio * (300.0 / max(-mv.z, 0.001));
+    gl_PointSize = aScale * uPixelRatio * (320.0 / max(-mv.z, 0.001));
   }
 `
 
@@ -180,22 +241,12 @@ const STAR_FRAG = /* glsl */ `
   void main() {
     float d = length(gl_PointCoord - 0.5);
     if (d > 0.5) discard;
-    float core = smoothstep(0.5, 0.0, d);
-    float g = pow(core, 4.0);
+    float g = pow(smoothstep(0.5, 0.0, d), 4.0);
     gl_FragColor = vec4(vColor * g, g * vTw);
   }
 `
 
-function DriftStars({
-  count,
-  scrollRef,
-  reduced,
-}: {
-  count: number
-  scrollRef: RefObject<number>
-  reduced: boolean
-}) {
-  const ref = useRef<THREE.Points>(null)
+function StarCorridor({ count, depth, reduced }: { count: number; depth: number; reduced: boolean }) {
   const mat = useRef<THREE.ShaderMaterial>(null)
 
   const { positions, colors, scales, phases } = useMemo(() => {
@@ -203,24 +254,21 @@ function DriftStars({
     const colors = new Float32Array(count * 3)
     const scales = new Float32Array(count)
     const phases = new Float32Array(count)
-
     for (let i = 0; i < count; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 190
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 130
-      positions[i * 3 + 2] = -20 - Math.random() * 90
+      positions[i * 3] = (Math.random() - 0.5) * 260
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 190
+      positions[i * 3 + 2] = 20 - Math.random() * (depth + 120)
 
-      // Spread across a realistic B-V range rather than inventing hues.
-      const bv = -0.32 + Math.random() * 1.9
-      const [r, g, b] = bvToRGB(bv)
+      const [r, g, b] = bvToRGB(-0.32 + Math.random() * 1.9)
       colors[i * 3] = r
       colors[i * 3 + 1] = g
       colors[i * 3 + 2] = b
 
-      scales[i] = Math.random() < 0.03 ? 2.2 + Math.random() * 2.0 : 0.5 + Math.random() * 1.1
+      scales[i] = Math.random() < 0.04 ? 2.4 + Math.random() * 2.2 : 0.5 + Math.random() * 1.2
       phases[i] = Math.random()
     }
     return { positions, colors, scales, phases }
-  }, [count])
+  }, [count, depth])
 
   const uniforms = useMemo(
     () => ({
@@ -233,16 +281,11 @@ function DriftStars({
   )
 
   useFrame((state) => {
-    const t = state.clock.elapsedTime
-    if (mat.current && !reduced) mat.current.uniforms.uTime.value = t
-    if (!ref.current) return
-    const p = (scrollRef.current || 0) / (typeof window !== 'undefined' ? window.innerHeight : 1)
-    ref.current.position.y = p * 16
-    ref.current.rotation.z = (reduced ? 0 : t * 0.004) + p * 0.06
+    if (mat.current && !reduced) mat.current.uniforms.uTime.value = state.clock.elapsedTime
   })
 
   return (
-    <points ref={ref} frustumCulled={false}>
+    <points frustumCulled={false}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
         <bufferAttribute attach="attributes-aColor" args={[colors, 3]} />
@@ -263,117 +306,86 @@ function DriftStars({
 }
 
 /* ------------------------------------------------------------------ *
- * Composition
+ * The flight itself
  * ------------------------------------------------------------------ */
 
-function Rig({ scrollRef, enabled }: { scrollRef: RefObject<number>; enabled: boolean }) {
-  useFrame((state, delta) => {
-    const p = (scrollRef.current || 0) / (typeof window !== 'undefined' ? window.innerHeight : 1)
-    const damp = 1 - Math.pow(0.0015, delta)
-    const targetX = enabled ? state.pointer.x * 2.2 : 0
-    const targetY = (enabled ? state.pointer.y * 1.4 : 0) + p * 3.5
+const TRAVEL = 620
 
-    state.camera.position.x += (targetX - state.camera.position.x) * damp
-    state.camera.position.y += (targetY - state.camera.position.y) * damp
-    // Scrolling pushes the viewer gently into the field.
-    state.camera.position.z += (46 - p * 9 - state.camera.position.z) * damp
-    state.camera.lookAt(0, 0, 0)
+/**
+ * Plates are spread down the corridor so each becomes the subject at a
+ * different point in the page, with lateral offsets so the flight is not a
+ * straight tunnel. Scroll maps to camera Z; the page never runs out of sky.
+ */
+const PLATES: Array<Omit<PlateProps, 'input' | 'reduced'>> = [
+  { slug: 'orion',     x:   0, y:   0, z:  -30, scale: 74, spin:  0.007, brightness: 2.6, alpha: 1.0, gamma: 0.95, saturation: 1.6, feather: 0.05, react: 1.0 },
+  { slug: 'carina',    x: -46, y:  20, z: -108, scale: 76, spin: -0.005, brightness: 2.0, alpha: 0.8, gamma: 1.2,  react: 0.9 },
+  { slug: 'eagle',     x:  44, y: -18, z: -186, scale: 74, spin:  0.006, brightness: 2.0, alpha: 0.8, gamma: 1.15, react: 0.9 },
+  { slug: 'horsehead', x: -34, y: -26, z: -258, scale: 62, spin: -0.008, brightness: 1.9, alpha: 0.78, gamma: 1.25, react: 1.0 },
+  { slug: 'lagoon',    x:  40, y:  26, z: -330, scale: 78, spin:  0.004, brightness: 1.9, alpha: 0.75, gamma: 1.3,  react: 0.9 },
+  { slug: 'andromeda', x: -20, y:   8, z: -410, scale: 88, spin:  0.003, brightness: 2.1, alpha: 0.85, gamma: 1.05, react: 1.0 },
+  { slug: 'helix',     x:  38, y: -22, z: -486, scale: 46, spin: -0.011, brightness: 2.2, alpha: 0.85, gamma: 1.1,  react: 1.2 },
+  { slug: 'crab',      x: -30, y:  22, z: -556, scale: 56, spin:  0.009, brightness: 2.1, alpha: 0.82, gamma: 1.1,  react: 1.1 },
+  { slug: 'veil',      x:  16, y:  -8, z: -624, scale: 82, spin: -0.004, brightness: 2.0, alpha: 0.7,  gamma: 1.3,  react: 0.9 },
+]
+
+function Flight({ input, reduced }: { input: RefObject<Input>; reduced: boolean }) {
+  const eased = useRef(0)
+
+  useFrame((state, delta) => {
+    const I = input.current
+    // Ease scroll so the flight keeps gliding after the wheel stops.
+    const k = 1 - Math.pow(0.0008, delta)
+    eased.current += (I.progress - eased.current) * k
+
+    const cam = state.camera
+    cam.position.z = 24 - eased.current * TRAVEL
+    // Drift laterally toward the pointer; the corridor should feel steerable.
+    const tx = reduced ? 0 : I.px * 7 * I.active
+    const ty = reduced ? 0 : I.py * 4.5 * I.active
+    cam.position.x += (tx - cam.position.x) * (1 - Math.pow(0.004, delta))
+    cam.position.y += (ty - cam.position.y) * (1 - Math.pow(0.004, delta))
+    cam.lookAt(0, 0, cam.position.z - 60)
   })
+
   return null
 }
 
-function Scene({ scrollRef, reduced }: { scrollRef: RefObject<number>; reduced: boolean }) {
+function Scene({ input, reduced }: { input: RefObject<Input>; reduced: boolean }) {
   const narrow = useThree((s) => s.size.width) < 768
-  const k = narrow ? 0.62 : 1
+  const k = narrow ? 0.6 : 1
 
   return (
     <>
-      <DriftStars count={narrow ? 900 : 1700} scrollRef={scrollRef} reduced={reduced} />
-
-      {/* Centrepiece. Orion is the brightest, most detailed plate we have. */}
-      <NebulaLayer
-        slug="orion"
-        position={[0, 0, -18]}
-        scale={62 * k}
-        spin={0.0075}
-        drift={0.5}
-        parallax={-7}
-        brightness={2.6}
-        alpha={1.0}
-        gamma={0.95}
-        saturation={1.6}
-        feather={0.06}
-        scrollRef={scrollRef}
-        reduced={reduced}
-      />
-
-      {/* Flanking clouds give the centrepiece depth and keep it off-symmetric. */}
-      <NebulaLayer
-        slug="carina"
-        position={[-38 * k, 12, -52]}
-        scale={58 * k}
-        spin={-0.005}
-        drift={-0.75}
-        parallax={-13}
-        brightness={1.7}
-        alpha={0.75}
-        gamma={1.35}
-        scrollRef={scrollRef}
-        reduced={reduced}
-      />
-      <NebulaLayer
-        slug="lagoon"
-        position={[40 * k, -14, -60]}
-        scale={62 * k}
-        spin={0.004}
-        drift={0.9}
-        parallax={-16}
-        brightness={1.6}
-        alpha={0.7}
-        gamma={1.45}
-        scrollRef={scrollRef}
-        reduced={reduced}
-      />
-      <NebulaLayer
-        slug="helix"
-        position={[26 * k, 22, -34]}
-        scale={26 * k}
-        spin={-0.011}
-        drift={1.5}
-        parallax={-4}
-        brightness={2.1}
-        alpha={0.85}
-        gamma={1.2}
-        scrollRef={scrollRef}
-        reduced={reduced}
-      />
-      <NebulaLayer
-        slug="horsehead"
-        position={[-30 * k, -22, -28]}
-        scale={30 * k}
-        spin={0.009}
-        drift={-1.2}
-        parallax={-5}
-        brightness={1.9}
-        alpha={0.8}
-        gamma={1.3}
-        scrollRef={scrollRef}
-        reduced={reduced}
-      />
-
-      <Rig scrollRef={scrollRef} enabled={!reduced} />
+      <StarCorridor count={narrow ? 1100 : 2200} depth={TRAVEL} reduced={reduced} />
+      {PLATES.map((p) => (
+        <Plate
+          key={p.slug}
+          {...p}
+          x={p.x * k}
+          y={p.y * k}
+          scale={p.scale * k}
+          input={input}
+          reduced={reduced}
+        />
+      ))}
+      <Flight input={input} reduced={reduced} />
     </>
   )
 }
 
-export function NebulaField({ className = '' }: { className?: string }) {
-  const scrollRef = useScrollRef()
+/**
+ * Full-page background. Rendered once behind the whole document rather than
+ * inside the hero, so scrolling flies through the field instead of leaving
+ * empty space below the fold.
+ */
+export function NebulaJourney({ className = '' }: { className?: string }) {
+  const input = useJourneyInput()
   const reduced = usePrefersReducedMotion()
 
   return (
-    <div className={`absolute inset-0 ${className}`} aria-hidden="true">
+    <div className={`fixed inset-0 z-0 pointer-events-none ${className}`} aria-hidden="true">
       <Canvas
-        camera={{ position: [0, 0, 46], fov: 58, near: 0.1, far: 400 }}
+        camera={{ position: [0, 0, 24], fov: 62, near: 0.1, far: 1200 }}
         dpr={[1, 1.75]}
         gl={{
           antialias: false,
@@ -385,12 +397,22 @@ export function NebulaField({ className = '' }: { className?: string }) {
         style={{ background: 'transparent' }}
       >
         <Suspense fallback={null}>
-          <Scene scrollRef={scrollRef} reduced={reduced} />
+          <Scene input={input} reduced={reduced} />
         </Suspense>
         <EffectComposer>
-          <Bloom intensity={0.85} luminanceThreshold={0.45} luminanceSmoothing={0.35} mipmapBlur radius={0.7} />
+          <Bloom intensity={0.9} luminanceThreshold={0.42} luminanceSmoothing={0.35} mipmapBlur radius={0.72} />
         </EffectComposer>
       </Canvas>
+
+      {/* Page-level edge falloff. Fixed alongside the canvas so it never
+          terminates mid-document the way a section-scoped vignette does. */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(ellipse 95% 85% at 50% 45%, transparent 0%, rgba(5,5,8,0.05) 62%, rgba(5,5,8,0.5) 100%)',
+        }}
+      />
     </div>
   )
 }
