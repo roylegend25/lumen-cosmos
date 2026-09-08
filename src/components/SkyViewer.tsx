@@ -34,7 +34,13 @@ interface LookState {
   dragging: boolean
 }
 
-function LookRig({ look }: { look: React.MutableRefObject<LookState> }) {
+function LookRig({
+  look,
+  onInteract,
+}: {
+  look: React.MutableRefObject<LookState>
+  onInteract?: () => void
+}) {
   const { camera, gl } = useThree()
 
   useEffect(() => {
@@ -44,6 +50,7 @@ function LookRig({ look }: { look: React.MutableRefObject<LookState> }) {
     let moved = 0
 
     const down = (e: PointerEvent) => {
+      onInteract?.()
       look.current.dragging = true
       moved = 0
       lastX = e.clientX
@@ -75,6 +82,7 @@ function LookRig({ look }: { look: React.MutableRefObject<LookState> }) {
     }
     const wheel = (e: WheelEvent) => {
       e.preventDefault()
+      onInteract?.()
       look.current.tFov = THREE.MathUtils.clamp(look.current.tFov + e.deltaY * 0.05, 12, 80)
     }
 
@@ -91,7 +99,7 @@ function LookRig({ look }: { look: React.MutableRefObject<LookState> }) {
       el.removeEventListener('pointercancel', up)
       el.removeEventListener('wheel', wheel)
     }
-  }, [gl, look])
+  }, [gl, look, onInteract])
 
   useFrame((_, delta) => {
     const L = look.current
@@ -458,6 +466,54 @@ function Picker({
  * Public
  * ------------------------------------------------------------------ */
 
+/**
+ * Slowly walks the view across constellations that are currently above the
+ * horizon, pausing on each. Any drag, zoom or manual selection cancels it —
+ * a tour that fights the user is worse than no tour.
+ */
+function AutoTour({
+  enabled,
+  order,
+  centroids,
+  look,
+  onArrive,
+}: {
+  enabled: boolean
+  order: string[]
+  centroids: { id: string; dir: THREE.Vector3 }[]
+  look: React.MutableRefObject<LookState>
+  onArrive: (id: string) => void
+}) {
+  const idx = useRef(0)
+  const holdUntil = useRef(0)
+
+  useFrame((state) => {
+    if (!enabled || order.length === 0) return
+    const t = state.clock.elapsedTime
+    if (t < holdUntil.current) return
+
+    const id = order[idx.current % order.length]
+    const c = centroids.find((x) => x.id === id)
+    idx.current += 1
+    holdUntil.current = t + 7
+
+    if (!c) return
+    const pitch = Math.asin(THREE.MathUtils.clamp(c.dir.y, -1, 1))
+    const yaw = Math.atan2(c.dir.x, -c.dir.z)
+
+    look.current.tPitch = THREE.MathUtils.clamp(pitch, 0.05, 1.4)
+    let y = yaw
+    while (y - look.current.tYaw > Math.PI) y -= Math.PI * 2
+    while (look.current.tYaw - y > Math.PI) y += Math.PI * 2
+    look.current.tYaw = y
+    look.current.tFov = 46
+
+    onArrive(id)
+  })
+
+  return null
+}
+
 export interface SkyViewerProps {
   sky: SkyData
   constellations: Constellation[]
@@ -466,6 +522,10 @@ export interface SkyViewerProps {
   activeId: string | null
   onSelect: (id: string | null) => void
   focusId?: string | null
+  tour?: boolean
+  tourOrder?: string[]
+  onTourStep?: (id: string) => void
+  onUserInteract?: () => void
   className?: string
 }
 
@@ -477,6 +537,10 @@ export function SkyViewer({
   activeId,
   onSelect,
   focusId,
+  tour = false,
+  tourOrder = [],
+  onTourStep,
+  onUserInteract,
   className = '',
 }: SkyViewerProps) {
   const reduced = useMemo(() => {
@@ -530,7 +594,14 @@ export function SkyViewer({
           lst={lst}
         />
         <Horizon />
-        <LookRig look={look} />
+        <LookRig look={look} onInteract={onUserInteract} />
+        <AutoTour
+          enabled={tour}
+          order={tourOrder}
+          centroids={centroids}
+          look={look}
+          onArrive={(id) => onTourStep?.(id)}
+        />
         <Picker centroids={centroids} onPick={onSelect} />
         <EffectComposer>
           <Bloom intensity={0.6} luminanceThreshold={0.5} luminanceSmoothing={0.3} mipmapBlur radius={0.6} />

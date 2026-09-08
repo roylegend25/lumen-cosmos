@@ -220,6 +220,91 @@ export function altAzToVec3(altDeg: number, azDeg: number, radius: number): THRE
   )
 }
 
+const COMPASS_16 = [
+  'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+  'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW',
+]
+
+const COMPASS_LONG: Record<string, string> = {
+  N: 'north', NNE: 'north-northeast', NE: 'northeast', ENE: 'east-northeast',
+  E: 'east', ESE: 'east-southeast', SE: 'southeast', SSE: 'south-southeast',
+  S: 'south', SSW: 'south-southwest', SW: 'southwest', WSW: 'west-southwest',
+  W: 'west', WNW: 'west-northwest', NW: 'northwest', NNW: 'north-northwest',
+}
+
+export function azimuthToCompass(az: number): { short: string; long: string } {
+  const i = Math.round((((az % 360) + 360) % 360) / 22.5) % 16
+  const short = COMPASS_16[i]
+  return { short, long: COMPASS_LONG[short] }
+}
+
+/** Plain-language instruction for actually finding something in the sky. */
+export function pointingInstruction(alt: number, az: number): string {
+  const { long } = azimuthToCompass(az)
+  if (alt < 0) return `Below the horizon — it is under your feet, ${Math.abs(alt).toFixed(0)}° down`
+  if (alt > 80) return 'Almost directly overhead — look straight up'
+  const height =
+    alt < 20 ? 'low above the horizon' : alt < 50 ? 'about halfway up' : 'high up'
+  return `Face ${long}, then look ${height} — ${alt.toFixed(0)}° above the horizon`
+}
+
+/**
+ * Low-precision solar position (Astronomical Almanac). Good to ~0.01°, which
+ * is far better than needed to answer "is it dark yet".
+ */
+export function sunRaDec(jd: number): { ra: number; dec: number } {
+  const D = Math.PI / 180
+  const n = jd - 2451545.0
+  const L = (280.46 + 0.9856474 * n) % 360
+  const g = ((357.528 + 0.9856003 * n) % 360) * D
+  const lambda = (L + 1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * D
+  const eps = (23.439 - 0.0000004 * n) * D
+  const ra = Math.atan2(Math.cos(eps) * Math.sin(lambda), Math.cos(lambda)) / D
+  const dec = Math.asin(Math.sin(eps) * Math.sin(lambda)) / D
+  return { ra: (ra + 360) % 360, dec }
+}
+
+export type Darkness = 'day' | 'civil' | 'nautical' | 'astronomical'
+
+/** How dark the sky is right now, by the standard solar-altitude bands. */
+export function darkness(date: Date, site: Site): { sunAlt: number; level: Darkness } {
+  const jd = julianDate(date)
+  const { ra, dec } = sunRaDec(jd)
+  const { alt } = raDecToAltAz(ra, dec, site.lat, lstDeg(jd, site.lon))
+  const level: Darkness =
+    alt > -0.833 ? 'day' : alt > -6 ? 'civil' : alt > -12 ? 'nautical' : 'astronomical'
+  return { sunAlt: alt, level }
+}
+
+/**
+ * Moon illumination as a 0..1 fraction, from the mean synodic cycle.
+ * A full Moon washes out everything fainter than about magnitude 4, so this
+ * matters as much as cloud for whether a faint figure is actually visible.
+ */
+export function moonIllumination(date: Date): { phase: number; illum: number; name: string } {
+  const jd = julianDate(date)
+  const phase = (((jd - 2451550.1) / 29.530588853) % 1 + 1) % 1
+  const illum = (1 - Math.cos(2 * Math.PI * phase)) / 2
+  const names = [
+    'New Moon', 'Waxing crescent', 'First quarter', 'Waxing gibbous',
+    'Full Moon', 'Waning gibbous', 'Last quarter', 'Waning crescent',
+  ]
+  return { phase, illum, name: names[Math.round(phase * 8) % 8] }
+}
+
+/**
+ * The date a constellation stands highest at local midnight — its best night
+ * of the year. That happens when the Sun sits opposite it, i.e. when the
+ * Sun's right ascension is twelve hours from the constellation's.
+ */
+export function bestViewingDate(raDeg: number, year = new Date().getFullYear()): Date {
+  const raHours = raDeg / 15
+  // Sun's RA is 0h at the March equinox and advances a full turn per year.
+  const daysAfterEquinox = (((raHours - 12) % 24) + 24) % 24 * (365.25 / 24)
+  const equinox = new Date(Date.UTC(year, 2, 20))
+  return new Date(equinox.getTime() + daysAfterEquinox * 86400000)
+}
+
 /** A short list of real sites for when geolocation is unavailable or denied. */
 export const CITIES: Site[] = [
   { label: 'Kolkata, India', lat: 22.5726, lon: 88.3639 },
