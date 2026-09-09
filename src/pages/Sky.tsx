@@ -150,7 +150,7 @@ export function Sky() {
       </div>
 
       {/* Conditions strip — is it even worth going outside right now. */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4">
         <Condition
           icon={dark?.level === 'day' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           label="Sky right now"
@@ -198,7 +198,7 @@ export function Sky() {
       </div>
 
       {dark?.level === 'day' && (
-        <p className="text-[12px] text-[#ffd8a8] bg-[#ffb45711] border border-[#ffb45733] rounded-lg px-3 py-2 mb-5">
+        <p className="text-[12px] text-[#ffd8a8] bg-[#ffb45711] border border-[#ffb45733] rounded-lg px-3 py-2 mb-4 leading-snug">
           The Sun is up at your location, so none of this is visible to the naked eye right now.
           Positions below are still correct — they show where each constellation actually sits
           behind the daylight.
@@ -233,7 +233,7 @@ export function Sky() {
           </button>
 
           {active && (
-            <div className="absolute left-4 bottom-4 right-4 sm:right-auto sm:max-w-md rounded-xl border border-white/10 bg-[#0a0a12]/93 backdrop-blur-xl p-4">
+            <div className="hidden sm:block absolute left-4 bottom-4 sm:max-w-md rounded-xl border border-white/10 bg-[#0a0a12]/93 backdrop-blur-xl p-4">
               <div className="flex items-start justify-between gap-3 mb-2.5">
                 <div>
                   <h3 className="text-[#f0f0f8] font-semibold text-[15px]">{active.c.name}</h3>
@@ -289,6 +289,52 @@ export function Sky() {
             </div>
           )}
         </div>
+
+        {/* Same detail, stacked under the sky on phones. */}
+        {active && (
+          <div className="sm:hidden rounded-xl border border-white/10 bg-[#0a0a12]/93 p-4">
+            <div className="flex items-start justify-between gap-3 mb-2.5">
+              <div>
+                <h3 className="text-[#f0f0f8] font-semibold text-[15px]">{active.c.name}</h3>
+                <p className="text-[12px] text-[#a0a0b8] font-mono mt-0.5">
+                  {active.c.genitive} · {active.c.id}
+                </p>
+              </div>
+              <Link
+                to={`/constellations/${active.c.id}`}
+                className="shrink-0 inline-flex items-center gap-1.5 text-[12px] text-[#9b8cff]"
+              >
+                Explore <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+            <div
+              className={`rounded-lg px-3 py-2 mb-2.5 border ${
+                active.alt > 0
+                  ? 'bg-[#7c6aff]/12 border-[#7c6aff]/30'
+                  : 'bg-white/[0.03] border-white/10'
+              }`}
+            >
+              <p className="text-[11px] uppercase tracking-wider text-[#6b6b85] mb-1">
+                Where to look
+              </p>
+              <p className="text-[13px] text-[#f0f0f8] leading-snug">
+                {pointingInstruction(active.alt, active.az)}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12px]">
+              <Row
+                label="Best night"
+                value={bestViewingDate(active.c.stars[0]?.ra ?? 0).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              />
+              <Row label="Stars" value={String(active.c.starCount)} />
+              <Row label="Brightest" value={active.c.stars[0]?.n ?? '—'} />
+              <Row label="Nearest" value={formatLy(active.c.nearestLy)} />
+            </div>
+          </div>
+        )}
 
         <div className="rounded-2xl border border-white/[0.07] bg-[#0a0a12]/60 p-4 flex flex-col">
           <div className="relative mb-3">
@@ -381,13 +427,13 @@ function Condition({
   const toneClass =
     tone === 'good' ? 'text-[#8fe3a0]' : tone === 'bad' ? 'text-[#ff9d8f]' : 'text-[#dcdcec]'
   return (
-    <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3">
-      <div className="flex items-center gap-2 mb-1.5 text-[#6b6b85]">
+    <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2.5 sm:px-4 sm:py-3">
+      <div className="flex items-center gap-1.5 mb-1 text-[#6b6b85]">
         <span className={toneClass}>{icon}</span>
-        <span className="text-[11px] uppercase tracking-wider">{label}</span>
+        <span className="text-[10px] sm:text-[11px] uppercase tracking-wider">{label}</span>
       </div>
-      <p className={`text-[16px] font-medium ${toneClass}`}>{value}</p>
-      {note && <p className="text-[11px] text-[#6b6b85] mt-0.5">{note}</p>}
+      <p className={`text-[14px] sm:text-[16px] font-medium ${toneClass}`}>{value}</p>
+      {note && <p className="text-[10px] sm:text-[11px] text-[#6b6b85] mt-0.5 leading-tight">{note}</p>}
     </div>
   )
 }

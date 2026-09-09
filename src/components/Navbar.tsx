@@ -7,7 +7,7 @@ import { cn } from '../lib/utils'
 const navLinks = [
   { name: 'Open Sky', path: '/sky' },
   { name: 'Constellations', path: '/constellations' },
-  { name: 'Nebulae', path: '/nebulae' },
+  { name: 'Deep Sky', path: '/nebulae' },
   { name: 'Stars', path: '/stars' },
   { name: 'Astrology', path: '/astrology' },
   { name: 'Pricing', path: '/pricing' },

@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
+import { STAR_SPRITE_FRAG, STAR_SPRITE_VERT, starSpriteUniforms } from '../lib/starShader'
 import {
   COMPASS,
   altAzToVec3,
@@ -148,6 +149,7 @@ const SKY_VERT = /* glsl */ `
 `
 
 const SKY_FRAG = /* glsl */ `
+  uniform float uDim;
   varying vec3 vColor;
   varying float vTw;
   varying float vBelow;
@@ -172,7 +174,7 @@ const SKY_FRAG = /* glsl */ `
 
     // Stars under the horizon are kept but heavily suppressed, so the sky
     // reads as a real hemisphere rather than a sphere floating in space.
-    i *= mix(1.0, 0.05, vBelow);
+    i *= mix(1.0, 0.05, vBelow) * uDim;
 
     vec3 col = mix(vColor, vec3(1.0), core * 0.7);
     gl_FragColor = vec4(col * i, i);
@@ -184,11 +186,13 @@ function Stars({
   site,
   lst,
   reduced,
+  dimmed,
 }: {
   sky: SkyData
   site: Site
   lst: number
   reduced: boolean
+  dimmed: boolean
 }) {
   const mat = useRef<THREE.ShaderMaterial>(null)
   const { camera } = useThree()
@@ -214,7 +218,7 @@ function Stars({
       colors[i * 3 + 2] = b
 
       // Power curve so first-magnitude stars stand out from the field.
-      sizes[i] = 2.2 + Math.pow(magToBrightness(mag, sky.magLimit), 1.5) * 16
+      sizes[i] = 1.1 + Math.pow(magToBrightness(mag, sky.magLimit), 2.6) * 22
       phases[i] = (i * 0.6180339887) % 1
     }
     return { positions, colors, sizes, phases }
@@ -227,15 +231,21 @@ function Stars({
         value: Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 2),
       },
       uFovScale: { value: 1 },
+      uDim: { value: 1 },
     }),
     [],
   )
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (!mat.current) return
     if (!reduced) mat.current.uniforms.uTime.value = state.clock.elapsedTime
     const cam = camera as THREE.PerspectiveCamera
     mat.current.uniforms.uFovScale.value = 60 / cam.fov
+    // Fade the background field down when a figure is selected, so its own
+    // stars read as the connected shape instead of competing with the crowd.
+    const target = dimmed ? 0.32 : 1
+    const u = mat.current.uniforms.uDim
+    u.value += (target - u.value) * (1 - Math.pow(0.004, delta))
   })
 
   return (
@@ -305,7 +315,7 @@ function ConstellationLines({
           <bufferGeometry key={`b${base.length}-${activeId}`}>
             <bufferAttribute attach="attributes-position" args={[base, 3]} />
           </bufferGeometry>
-          <lineBasicMaterial color="#6478ff" transparent opacity={0.2} depthWrite={false} />
+          <lineBasicMaterial color="#5566cc" transparent opacity={0.13} depthWrite={false} />
         </lineSegments>
       )}
       {active.length > 0 && (
@@ -313,10 +323,87 @@ function ConstellationLines({
           <bufferGeometry key={`a${active.length}-${activeId}`}>
             <bufferAttribute attach="attributes-position" args={[active, 3]} />
           </bufferGeometry>
-          <lineBasicMaterial color="#b9a8ff" transparent opacity={1} depthWrite={false} />
+          <lineBasicMaterial color="#cbbcff" transparent opacity={1} depthWrite={false} toneMapped={false} />
         </lineSegments>
       )}
     </>
+  )
+}
+
+/**
+ * The member stars of the selected figure, drawn over the dimmed field.
+ *
+ * Lines alone do not read as "connected dots" when every star behind them is
+ * the same weight — the vertices have to be visibly the thing being joined.
+ */
+function FigureStars({
+  constellation,
+  site,
+  lst,
+}: {
+  constellation: Constellation | null
+  site: Site
+  lst: number
+}) {
+  const mat = useRef<THREE.ShaderMaterial>(null)
+
+  const data = useMemo(() => {
+    if (!constellation) return null
+    const stars = constellation.stars.filter((s) => s.mag <= 5.4).slice(0, 40)
+    if (!stars.length) return null
+
+    const positions = new Float32Array(stars.length * 3)
+    const colors = new Float32Array(stars.length * 3)
+    const sizes = new Float32Array(stars.length)
+    const phases = new Float32Array(stars.length)
+
+    for (let i = 0; i < stars.length; i++) {
+      const s = stars[i]
+      const v = toLocal(s.ra, s.dec, site, lst, SKY_R * 0.995)
+      positions[i * 3] = v.x
+      positions[i * 3 + 1] = v.y
+      positions[i * 3 + 2] = v.z
+
+      const [r, g, b] = bvToRGB(s.ci)
+      colors[i * 3] = r
+      colors[i * 3 + 1] = g
+      colors[i * 3 + 2] = b
+
+      sizes[i] = 2.4 + Math.pow(magToBrightness(s.mag, 6), 2.0) * 11
+      phases[i] = (i * 0.6180339887) % 1
+    }
+    return { positions, colors, sizes, phases, count: stars.length }
+  }, [constellation, site, lst])
+
+  const uniforms = useMemo(
+    () => starSpriteUniforms({ scale: 0.85, spikes: 0.55, halo: 0.3, twinkle: 0.12 }),
+    [],
+  )
+
+  useFrame((state) => {
+    if (mat.current) mat.current.uniforms.uTime.value = state.clock.elapsedTime
+  })
+
+  if (!data) return null
+
+  return (
+    <points frustumCulled={false} renderOrder={2}>
+      <bufferGeometry key={`${constellation?.id}-${data.count}`}>
+        <bufferAttribute attach="attributes-position" args={[data.positions, 3]} />
+        <bufferAttribute attach="attributes-aColor" args={[data.colors, 3]} />
+        <bufferAttribute attach="attributes-aSize" args={[data.sizes, 1]} />
+        <bufferAttribute attach="attributes-aPhase" args={[data.phases, 1]} />
+      </bufferGeometry>
+      <shaderMaterial
+        ref={mat}
+        vertexShader={STAR_SPRITE_VERT}
+        fragmentShader={STAR_SPRITE_FRAG}
+        uniforms={uniforms}
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
   )
 }
 
@@ -506,7 +593,7 @@ function AutoTour({
     while (y - look.current.tYaw > Math.PI) y -= Math.PI * 2
     while (look.current.tYaw - y > Math.PI) y += Math.PI * 2
     look.current.tYaw = y
-    look.current.tFov = 46
+    look.current.tFov = window.innerWidth < 640 ? 66 : 50
 
     onArrive(id)
   })
@@ -575,7 +662,7 @@ export function SkyViewer({
     while (y - look.current.tYaw > Math.PI) y -= Math.PI * 2
     while (look.current.tYaw - y > Math.PI) y += Math.PI * 2
     look.current.tYaw = y
-    look.current.tFov = 38
+    look.current.tFov = window.innerWidth < 640 ? 62 : 44
   }, [focusId, centroids])
 
   return (
@@ -586,7 +673,12 @@ export function SkyViewer({
         gl={{ antialias: false, alpha: true, powerPreference: 'high-performance' }}
         style={{ background: 'transparent', touchAction: 'none' }}
       >
-        <Stars sky={sky} site={site} lst={lst} reduced={reduced} />
+        <Stars sky={sky} site={site} lst={lst} reduced={reduced} dimmed={!!activeId} />
+        <FigureStars
+          constellation={constellations.find((c) => c.id === activeId) ?? null}
+          site={site}
+          lst={lst}
+        />
         <ConstellationLines
           constellations={constellations}
           activeId={activeId}

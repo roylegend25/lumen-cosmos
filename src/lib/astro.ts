@@ -66,6 +66,8 @@ export interface Chart {
 
 export interface Nebula {
   slug: string
+  /** nebula | galaxy | cluster — these are genuinely different objects. */
+  category: 'nebula' | 'galaxy' | 'cluster'
   name: string
   catalog: string
   type: string

@@ -15,18 +15,61 @@ export function Nebulae() {
   return (
     <div className="section-padding container-wide pt-24 pb-20">
       <p className="text-[11px] font-medium tracking-[0.28em] uppercase text-[#9b8cff]/90 mb-3">
-        Deep sky
+        Catalogue
       </p>
       <h1 className="text-[2rem] md:text-[2.75rem] font-semibold tracking-[-0.02em] text-[#f0f0f8] mb-3">
-        Nebulae
+        Deep sky
       </h1>
       <p className="text-[#a0a0b8] max-w-2xl text-[15px] leading-relaxed mb-10">
-        Real imagery from NASA, Hubble, Spitzer and Herschel — public-domain plates, shown at full
-        brightness with their original credit.
+        Real imagery from NASA, Hubble, Spitzer and Herschel — public-domain plates with their
+        original credit. Grouped by what each object actually is: a nebula is gas and dust inside
+        our own galaxy, a galaxy is a separate island of billions of stars, and a cluster is a
+        gravitationally bound group.
       </p>
 
+      {GROUPS.map((g) => {
+        const items = list.filter((n) => n.category === g.key)
+        if (!items.length) return null
+        return (
+          <section key={g.key} className="mb-12">
+            <div className="flex items-baseline gap-3 mb-1">
+              <h2 className="text-[1.3rem] font-semibold text-[#f0f0f8]">{g.title}</h2>
+              <span className="text-[12px] font-mono text-[#6b6b85]">{items.length}</span>
+            </div>
+            <p className="text-[13px] text-[#a0a0b8] mb-5 max-w-2xl">{g.blurb}</p>
+            <Grid items={items} />
+          </section>
+        )
+      })}
+    </div>
+  )
+}
+
+const GROUPS = [
+  {
+    key: 'nebula' as const,
+    title: 'Nebulae',
+    blurb:
+      'Clouds of gas and dust within the Milky Way — some lit by the stars forming inside them, some the debris of stars that have died.',
+  },
+  {
+    key: 'galaxy' as const,
+    title: 'Galaxies',
+    blurb:
+      'Separate systems of billions of stars, far outside our own. Distances here jump from thousands of light-years to millions.',
+  },
+  {
+    key: 'cluster' as const,
+    title: 'Star clusters',
+    blurb:
+      'Groups of stars bound by gravity and born together, so every member shares an age and a chemistry.',
+  },
+]
+
+function Grid({ items }: { items: Nebula[] }) {
+  return (
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {list.map((n) => (
+        {items.map((n) => (
           <Link
             key={n.slug}
             to={`/nebulae/${n.slug}`}
@@ -52,7 +95,6 @@ export function Nebulae() {
           </Link>
         ))}
       </div>
-    </div>
   )
 }
 
