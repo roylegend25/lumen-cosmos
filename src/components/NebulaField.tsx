@@ -84,6 +84,8 @@ const NEBULA_FRAG = /* glsl */ `
   uniform float uGamma;
   uniform float uFeather;
   uniform float uSaturation;
+  uniform float uVibrance;
+  uniform float uContrast;
   uniform float uGlow;
   uniform vec2  uPointer;
   uniform float uAspect;
@@ -123,13 +125,28 @@ const NEBULA_FRAG = /* glsl */ `
     // Feather the plate edges so nothing reads as a photograph border.
     float edge = smoothstep(0.5, uFeather, length(uv - 0.5));
 
-    // Additive blending and ACES both pull toward grey; push the plate's own
-    // colour back out before it reaches the composer.
     // Soft-knee the halo so bright cores spread instead of clipping to a
     // flat white disc.
     vec3 haze = glow * uGlow;
     haze = haze / (1.0 + haze * 0.85);
-    vec3 col = mix(vec3(lum), t.rgb, uSaturation) + haze;
+
+    // Additive blending pulls everything toward grey, so the plate's colour
+    // is pushed back out. Vibrance rather than flat saturation: the boost is
+    // scaled by how unsaturated a pixel already is, which lifts the dusty
+    // mid-tones that carry most of a nebula's colour without over-cooking
+    // the few pixels that are already vivid.
+    float mx = max(max(t.r, t.g), t.b);
+    float mn = min(min(t.r, t.g), t.b);
+    float chroma = mx - mn;
+    float boost = uSaturation + uVibrance * (1.0 - smoothstep(0.0, 0.72, chroma));
+    vec3 col = mix(vec3(lum), t.rgb, boost);
+
+    // Gentle S-curve on colour only. Deepens hues and separates the cloud
+    // from the sky without touching overall exposure.
+    col = clamp(col, 0.0, 4.0);
+    col = mix(col, col * col * (3.0 - 2.0 * col / max(mx, 1e-4)) * 0.5, uContrast);
+
+    col += haze;
 
     float a = mask * edge * uAlpha * (1.0 + infl * 0.9);
     gl_FragColor = vec4(col * uBrightness * (1.0 + infl * 1.6), a);
@@ -148,6 +165,8 @@ interface PlateProps {
   gamma?: number
   feather?: number
   saturation?: number
+  vibrance?: number
+  contrast?: number
   glow?: number
   react?: number
   input: RefObject<Input>
@@ -233,7 +252,9 @@ const Plate = memo(function Plate({
   alpha = 0.9,
   gamma = 1.2,
   feather = 0.1,
-  saturation = 1.5,
+  saturation = 1.7,
+  vibrance = 1.55,
+  contrast = 0.34,
   glow = 0.9,
   react = 1,
   active,
@@ -253,12 +274,14 @@ const Plate = memo(function Plate({
       uGamma: { value: gamma },
       uFeather: { value: feather },
       uSaturation: { value: saturation },
+      uVibrance: { value: vibrance },
+      uContrast: { value: contrast },
       uGlow: { value: glow },
       uPointer: { value: new THREE.Vector2(0, 0) },
       uAspect: { value: 1 },
       uReact: { value: 0 },
     }),
-    [map, brightness, alpha, gamma, feather, saturation, glow],
+    [map, brightness, alpha, gamma, feather, saturation, vibrance, contrast, glow],
   )
 
   const smoothed = useRef({ x: 0, y: 0, a: 0 })
@@ -386,15 +409,15 @@ const TRAVEL = 620
  * is 960px and could never look sharp at this size.
  */
 const PLATES: Array<Omit<PlateProps, 'input' | 'reduced'>> = [
-  { slug: 'horsehead', x:  -4, y:   1, z:  -40, scale: 72, spin:  0.006, brightness: 4.6, alpha: 1.0, gamma: 0.9, saturation: 1.5, feather: 0.07, react: 1.0 },
-  { slug: 'carina',    x: -44, y:  16, z: -122, scale: 78, spin: -0.005, brightness: 4.0, alpha: 0.9, gamma: 1.05,  react: 0.9 },
-  { slug: 'lagoon',    x:  42, y: -16, z: -198, scale: 76, spin:  0.004, brightness: 4.0, alpha: 0.88, gamma: 1.1, react: 0.9 },
-  { slug: 'eagle',     x: -30, y: -22, z: -272, scale: 70, spin:  0.006, brightness: 4.1, alpha: 0.86, gamma: 1.05,  react: 0.95 },
-  { slug: 'andromeda', x:  24, y:  20, z: -348, scale: 86, spin:  0.003, brightness: 3.6, alpha: 0.9, gamma: 0.95, react: 1.0 },
+  { slug: 'horsehead', x:  -4, y:   1, z:  -40, scale: 72, spin:  0.006, brightness: 4.6, alpha: 1.0, gamma: 0.72, saturation: 1.5, feather: 0.07, react: 1.0 },
+  { slug: 'carina',    x: -44, y:  16, z: -122, scale: 78, spin: -0.005, brightness: 4.0, alpha: 0.9, gamma: 0.9,  react: 0.9 },
+  { slug: 'lagoon',    x:  42, y: -16, z: -198, scale: 76, spin:  0.004, brightness: 4.0, alpha: 0.88, gamma: 0.95, react: 0.9 },
+  { slug: 'eagle',     x: -30, y: -22, z: -272, scale: 70, spin:  0.006, brightness: 4.1, alpha: 0.86, gamma: 0.9,  react: 0.95 },
+  { slug: 'andromeda', x:  24, y:  20, z: -348, scale: 86, spin:  0.003, brightness: 3.6, alpha: 0.9, gamma: 0.85, react: 1.0 },
   { slug: 'helix',     x: -34, y: -14, z: -420, scale: 44, spin: -0.010, brightness: 3.6, alpha: 0.9, gamma: 1.0, react: 1.2 },
-  { slug: 'orion',     x:  20, y:  10, z: -494, scale: 72, spin:  0.005, brightness: 3.8, alpha: 0.86, gamma: 1.25,  saturation: 1.55, react: 1.0 },
+  { slug: 'orion',     x:  20, y:  10, z: -494, scale: 72, spin:  0.005, brightness: 3.8, alpha: 0.86, gamma: 1.05, saturation: 1.6, react: 1.0 },
   { slug: 'crab',      x: -26, y:  20, z: -566, scale: 52, spin:  0.008, brightness: 3.5, alpha: 0.84, gamma: 1.15,  react: 1.1 },
-  { slug: 'flame',     x:  22, y: -10, z: -636, scale: 68, spin: -0.004, brightness: 2.9, alpha: 0.78, gamma: 1.4, react: 0.9 },
+  { slug: 'flame',     x:  22, y: -10, z: -636, scale: 68, spin: -0.004, brightness: 2.9, alpha: 0.78, gamma: 1.2, react: 0.9 },
 ]
 
 function Flight({ input, reduced }: { input: RefObject<Input>; reduced: boolean }) {
